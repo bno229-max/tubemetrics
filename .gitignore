@@ -1,0 +1,8 @@
+node_modules/
+.firebase/
+.vercel/
+.tmp/
+*.log
+.env
+.env.*
+.DS_Store
