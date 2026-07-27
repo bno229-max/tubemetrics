@@ -25,7 +25,7 @@ export default async function discover(root, _params, ctx) {
             ${quota.limit === Infinity
               ? '<span class="chip chip-pos">Análises ilimitadas</span>'
               : `<span class="chip ${quota.remaining === 0 ? 'chip-neg' : quota.remaining <= 2 ? 'chip-warn' : ''}">
-                   ${int(quota.remaining)} de ${int(quota.limit)} análises neste mês</span>`}
+                   ${int(quota.remaining)} ${quota.remaining === 1 ? 'análise restante' : 'análises restantes'} neste mês</span>`}
           </div>
         </div>
       </div>

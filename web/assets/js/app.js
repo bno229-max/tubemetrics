@@ -112,7 +112,7 @@ function paintNav(activeId) {
     ${limit === Infinity
       ? '<div class="hint" style="margin-top:8px">Análises ilimitadas</div>'
       : `<div class="meter"><i style="width:${Math.min(100, (used / limit) * 100)}%"></i></div>
-         <div class="hint">${int(Math.min(used, limit))} de ${int(limit)} análises neste mês</div>`}`;
+         <div class="hint">${int(Math.min(used, limit))} de ${int(limit)} análises usadas</div>`}`;
 
   const label = s.theme === 'dark' ? 'Tema escuro' : 'Tema claro';
   document.querySelectorAll('[data-theme-label]').forEach((e) => (e.textContent = label));
