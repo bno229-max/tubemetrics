@@ -1,7 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-
-  "//": "O site estático vive em web/ e as funções em api/. A Vercel detecta api/ automaticamente.",
   "outputDirectory": "web",
 
   "headers": [
