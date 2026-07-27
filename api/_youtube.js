@@ -138,6 +138,12 @@ function toChannelCard(c) {
     description: (c.snippet?.description || '').trim().slice(0, 160) || 'Sem descrição.',
     country: c.snippet?.country || '—',
     accent: accentFor(c.id),
+    // Foto de perfil do canal. `medium` (240px) equilibra nitidez e peso; a
+    // interface usa o mesmo arquivo em tamanhos de 18 a 62 px.
+    thumbnail:
+      c.snippet?.thumbnails?.medium?.url ||
+      c.snippet?.thumbnails?.default?.url ||
+      null,
     publishedAt: c.snippet?.publishedAt || new Date().toISOString(),
     statistics: {
       subscriberCount: num(c.statistics?.subscriberCount),

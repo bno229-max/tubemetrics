@@ -22,31 +22,30 @@ import { json, fail, guard, handleYouTubeError } from './_http.js';
  * propósito: ciência, humor, games, culinária, música e entrevista.
  */
 const SEED_HANDLES = [
-  'manualdomundo',
-  'portadosfundos',
-  'Whinderssonnunes',
-  'felipeneto',
-  'luccasneto',
-  'rezendeevil',
-  'AuthenticGames',
-  'canalnostalgia',
-  'Nerdologia',
-  'castanhari',
-  'cheffotto',
-  'panelaterapia',
-  'kondzilla',
+  // Entretenimento e humor
+  'Whinderssonnunes', 'felipeneto', 'luccasneto', 'portadosfundos', 'vocesabia',
+  'T3ddy', 'Enaldinho', 'cocielo', 'Casimito', 'Desimpedidos',
+  // Games
+  'rezendeevil', 'AuthenticGames', 'jovemnerd',
+  // Ciência, educação e curiosidades
+  'manualdomundo', 'Nerdologia', 'CanalNostalgia',
+  // Culinária
+  'cheffotto', 'panelaterapia',
+  // Música
+  'kondzilla', 'anitta', 'luansantana', 'wesleysafadao', 'henriquejuliano', 'jorgeemateus',
+  // Entrevista e podcast
   'flowpodcast',
-  'vocesabia',
-  'tvculturadigital',
-  'CanalCienciaTodoDia',
-  'peixebabel',
-  'GustavoCerbasi',
-  'meupriprio',
-  'jout_jout',
-  'diycore',
-  'BrancoalaOficial',
-  'CanalDoSlow',
 ];
+
+/**
+ * Piso de inscritos.
+ *
+ * Handle errado costuma resolver para um canal homônimo minúsculo — a primeira
+ * versão desta lista trouxe um canal de 56 inscritos entre os maiores do
+ * Brasil. Um ranking "por inscritos" com um canal desses perde a credibilidade
+ * inteira, então o piso descarta a resolução equivocada em silêncio.
+ */
+const MIN_SUBSCRIBERS = 500000;
 
 /** 12 horas: inscritos de canal grande não mudam de forma relevante em um dia. */
 const CACHE_TOP = 'public, s-maxage=43200, stale-while-revalidate=172800';
@@ -65,6 +64,7 @@ export default async function handler(req, res) {
     }
 
     const ranked = channels
+      .filter((c) => c.statistics.subscriberCount >= MIN_SUBSCRIBERS)
       .sort((a, b) => b.statistics.subscriberCount - a.statistics.subscriberCount)
       .slice(0, limit)
       .map((c, i) => ({ ...c, rank: i + 1 }));
@@ -77,6 +77,7 @@ export default async function handler(req, res) {
         total: ranked.length,
         resolved: channels.length,
         requested: SEED_HANDLES.length,
+        minSubscribers: MIN_SUBSCRIBERS,
         fetchedAt: new Date().toISOString(),
       },
       CACHE_TOP
