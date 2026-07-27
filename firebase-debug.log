@@ -1,0 +1,45 @@
+[debug] [2026-07-27T20:30:09.682Z] ----------------------------------------------------------------------
+[debug] [2026-07-27T20:30:09.687Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\Fabiano Micro\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy
+[debug] [2026-07-27T20:30:09.687Z] CLI Version:   15.24.0
+[debug] [2026-07-27T20:30:09.687Z] Platform:      win32
+[debug] [2026-07-27T20:30:09.687Z] Node Version:  v24.16.0
+[debug] [2026-07-27T20:30:09.688Z] Detected Agent: unknown
+[debug] [2026-07-27T20:30:09.688Z] Time:          Mon Jul 27 2026 17:30:09 GMT-0300 (Horário Padrão de Brasília)
+[debug] [2026-07-27T20:30:09.688Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-07-27T20:30:13.970Z] Object "/hosting/headers/3" in "firebase.json" is missing required property: {"missingProperty":"glob"}
+[debug] [2026-07-27T20:30:13.971Z] Object "/hosting/headers/3/headers/0" in "firebase.json" has unknown property: {"additionalProperty":"comment"}
+[debug] [2026-07-27T20:30:13.971Z] Object "/hosting/headers/3" in "firebase.json" is missing required property: {"missingProperty":"regex"}
+[debug] [2026-07-27T20:30:13.971Z] Field "/hosting/headers/3" in "firebase.json" is possibly invalid: must match a schema in anyOf
+[debug] [2026-07-27T20:30:13.971Z] Field "/hosting" in "firebase.json" is possibly invalid: must be array
+[debug] [2026-07-27T20:30:13.971Z] Field "/hosting" in "firebase.json" is possibly invalid: must match a schema in anyOf
+[debug] [2026-07-27T20:30:13.978Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-07-27T20:30:13.978Z] > authorizing via signed-in user (blackcatwinesloja@gmail.com)
+[debug] [2026-07-27T20:30:13.979Z] [iam] checking project s for permissions ["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get","firebasehosting.sites.update"]
+[debug] [2026-07-27T20:30:14.002Z] Checked if tokens are valid: true, expires at: 1785187168771
+[debug] [2026-07-27T20:30:14.002Z] Checked if tokens are valid: true, expires at: 1785187168771
+[debug] [2026-07-27T20:30:14.004Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/s:testIamPermissions [none]
+[debug] [2026-07-27T20:30:14.004Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/s:testIamPermissions  x-goog-user-project=s
+[debug] [2026-07-27T20:30:14.004Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/s:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","datastore.indexes.create","datastore.indexes.delete","datastore.indexes.list","datastore.indexes.update","firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2026-07-27T20:30:15.588Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/s:testIamPermissions 400
+[debug] [2026-07-27T20:30:15.589Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/s:testIamPermissions {"error":{"code":400,"message":"Project 'projects/s' not found or deleted.","status":"INVALID_ARGUMENT","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"USER_PROJECT_DENIED","domain":"googleapis.com","metadata":{"containerInfo":"projects/s","consumer":"projects/s","service":"cloudresourcemanager.googleapis.com"}}]}}
+[debug] [2026-07-27T20:30:15.590Z] [iam] error while checking permissions, command may fail: Request to https://cloudresourcemanager.googleapis.com/v1/projects/s:testIamPermissions had HTTP Error: 400, Project 'projects/s' not found or deleted.
+[debug] [2026-07-27T20:30:15.590Z] Checked if tokens are valid: true, expires at: 1785187168771
+[debug] [2026-07-27T20:30:15.591Z] Checked if tokens are valid: true, expires at: 1785187168771
+[debug] [2026-07-27T20:30:15.591Z] >>> [apiv2][query] POST https://iam.googleapis.com/v1/projects/s/serviceAccounts/s@appspot.gserviceaccount.com:testIamPermissions [none]
+[debug] [2026-07-27T20:30:15.591Z] >>> [apiv2][body] POST https://iam.googleapis.com/v1/projects/s/serviceAccounts/s@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[debug] [2026-07-27T20:30:16.677Z] <<< [apiv2][status] POST https://iam.googleapis.com/v1/projects/s/serviceAccounts/s@appspot.gserviceaccount.com:testIamPermissions 404
+[debug] [2026-07-27T20:30:16.677Z] <<< [apiv2][body] POST https://iam.googleapis.com/v1/projects/s/serviceAccounts/s@appspot.gserviceaccount.com:testIamPermissions {"error":{"code":404,"message":"Unknown service account","status":"NOT_FOUND"}}
+[debug] [2026-07-27T20:30:16.678Z] [functions] service account IAM check errored, deploy may fail: Request to https://iam.googleapis.com/v1/projects/s/serviceAccounts/s@appspot.gserviceaccount.com:testIamPermissions had HTTP Error: 404, Unknown service account {"name":"FirebaseError","children":[],"context":{"body":{"error":{"code":404,"message":"Unknown service account","status":"NOT_FOUND"}},"response":{"statusCode":404}},"exit":1,"message":"Request to https://iam.googleapis.com/v1/projects/s/serviceAccounts/s@appspot.gserviceaccount.com:testIamPermissions had HTTP Error: 404, Unknown service account","status":404}
+[debug] [2026-07-27T20:30:16.681Z] Checked if tokens are valid: true, expires at: 1785187168771
+[debug] [2026-07-27T20:30:16.681Z] Checked if tokens are valid: true, expires at: 1785187168771
+[debug] [2026-07-27T20:30:16.682Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/s [none]
+[debug] [2026-07-27T20:30:17.390Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/s 403
+[debug] [2026-07-27T20:30:17.390Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/s {"error":{"code":403,"message":"The caller does not have permission","status":"PERMISSION_DENIED"}}
+[debug] [2026-07-27T20:30:17.391Z] Request to https://firebase.googleapis.com/v1beta1/projects/s had HTTP Error: 403, The caller does not have permission
+[debug] [2026-07-27T20:30:17.715Z] FirebaseError: Request to https://firebase.googleapis.com/v1beta1/projects/s had HTTP Error: 403, The caller does not have permission
+    at responseToError (C:\Users\Fabiano Micro\AppData\Roaming\npm\node_modules\firebase-tools\lib\responseToError.js:53:12)
+    at RetryOperation._fn (C:\Users\Fabiano Micro\AppData\Roaming\npm\node_modules\firebase-tools\lib\apiv2.js:415:77)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+[error] 
+[error] Error: Failed to get Firebase project s. Please make sure the project exists and your account has permission to access it.

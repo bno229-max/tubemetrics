@@ -1,0 +1,13 @@
+{
+  "name": "tubemetrics",
+  "version": "1.0.0",
+  "description": "SaaS de análise de métricas de canais do YouTube — insights por estatística, sem IA",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "dev": "python -m http.server 8735 --directory web"
+  }
+}

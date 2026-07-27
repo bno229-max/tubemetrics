@@ -1,0 +1,230 @@
+/**
+ * app.js — Shell da aplicação, roteador por hash e ligação global de eventos.
+ *
+ * Roteador por hash de propósito: o app é 100% estático e precisa abrir de
+ * qualquer lugar (file://, GitHub Pages, um bucket) sem servidor reescrevendo
+ * rotas. Cada view é carregada sob demanda com `import()` dinâmico, então a
+ * primeira pintura não paga o custo das telas que o usuário talvez nem abra.
+ */
+
+import * as store from './store.js';
+import { icon, qs } from './ui.js';
+import { redrawAll } from './charts.js';
+import { mountSearch } from './views/searchbox.js';
+import { can, limitOf, PLAN_BY_ID } from './plans.js';
+import { int } from './format.js';
+
+/* ------------------------------------------------------------------ rotas */
+
+const ROUTES = [
+  { path: /^#?\/?$/, shell: false, load: () => import('./views/landing.js'), title: 'Análise de canais do YouTube' },
+  { path: /^#\/descobrir\/?$/, load: () => import('./views/discover.js'), nav: 'descobrir', title: 'Descobrir canais' },
+  { path: /^#\/canal\/([^/]+)(?:\/([^/]+))?\/?$/, load: () => import('./views/public-report.js'), nav: 'descobrir', title: 'Relatório do canal', params: (m) => ({ id: m[1], tab: m[2] }) },
+  { path: /^#\/comparar\/?$/, load: () => import('./views/compare.js'), nav: 'comparar', title: 'Comparar canais' },
+  { path: /^#\/criador\/?$/, load: () => import('./views/creator.js'), nav: 'criador', title: 'Dashboard do Criador' },
+  { path: /^#\/planos\/?$/, load: () => import('./views/pricing.js'), nav: 'planos', title: 'Planos' },
+];
+
+const NAV = [
+  {
+    group: 'Análise',
+    items: [
+      { id: 'descobrir', label: 'Descobrir canais', icon: 'search', href: '#/descobrir' },
+      { id: 'comparar', label: 'Comparar canais', icon: 'compare', href: '#/comparar', feature: 'compare_channels' },
+    ],
+  },
+  {
+    group: 'Meu canal',
+    items: [
+      { id: 'criador', label: 'Dashboard do Criador', icon: 'gauge', href: '#/criador', feature: 'creator_dashboard' },
+    ],
+  },
+  {
+    group: 'Conta',
+    items: [
+      { id: 'planos', label: 'Planos e limites', icon: 'layers', href: '#/planos' },
+    ],
+  },
+];
+
+/* ------------------------------------------------------------------ shell */
+
+const app = qs('#app');
+let shellMounted = false;
+
+function shellHtml() {
+  return `
+    <div class="app">
+      <div class="nav-backdrop" data-nav-close></div>
+      <aside class="nav" aria-label="Navegação principal">
+        <div class="nav-brand">
+          <a href="#/" class="flex ac g8" style="gap:9px"><span class="logo-mark"></span><strong>TubeMetrics</strong></a>
+        </div>
+        <div class="nav-scroll" data-nav-links></div>
+        <div class="nav-foot">
+          <div class="plan-box" data-plan-box></div>
+          <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:9px;justify-content:flex-start" data-theme-toggle>
+            ${icon('sun')} <span data-theme-label>Tema claro</span>
+          </button>
+        </div>
+      </aside>
+
+      <div class="main">
+        <header class="topbar">
+          <button class="btn btn-ghost btn-icon btn-sm nav-toggle" data-nav-open aria-label="Abrir menu">${icon('menu')}</button>
+          <div class="crumbs"><span>TubeMetrics</span>${icon('chevron')}<b data-crumb>—</b></div>
+          <div class="spacer"></div>
+          <div class="search-wrap">
+            ${icon('search')}
+            <input class="input" type="search" placeholder="Buscar canal…" aria-label="Buscar canal" autocomplete="off" data-top-search>
+          </div>
+          <button class="btn btn-ghost btn-icon btn-sm" data-theme-toggle aria-label="Alternar tema">${icon('moon')}</button>
+        </header>
+        <main data-view></main>
+      </div>
+    </div>`;
+}
+
+function paintNav(activeId) {
+  const s = store.get();
+
+  qs('[data-nav-links]').innerHTML = NAV.map((g) => `
+    <div class="nav-group">
+      <span class="label">${g.group}</span>
+      ${g.items.map((it) => {
+        const locked = it.feature && !can(s.plan, it.feature);
+        return `<a class="nav-link${it.id === activeId ? ' active' : ''}${locked ? ' locked' : ''}" href="${it.href}">
+          ${icon(it.icon)}<span>${it.label}</span>${locked ? icon('lock', 'lock') : ''}
+        </a>`;
+      }).join('')}
+    </div>`).join('');
+
+  const quota = limitOf(s.plan, 'searchesPerDay');
+  const used = store.searchesToday();
+  const planName = PLAN_BY_ID[s.plan].name;
+
+  qs('[data-plan-box]').innerHTML = `
+    <div class="row">
+      <span class="name">Plano ${planName}</span>
+      ${s.plan === 'free' ? '<a href="#/planos" class="chip chip-brand">Fazer upgrade</a>' : '<span class="chip chip-pos">Ativo</span>'}
+    </div>
+    ${quota === Infinity
+      ? '<div class="hint" style="margin-top:8px">Buscas ilimitadas</div>'
+      : `<div class="meter"><i style="width:${Math.min(100, (used / quota) * 100)}%"></i></div>
+         <div class="hint">${int(Math.min(used, quota))} de ${int(quota)} buscas usadas hoje</div>`}`;
+
+  const label = s.theme === 'dark' ? 'Tema escuro' : 'Tema claro';
+  document.querySelectorAll('[data-theme-label]').forEach((e) => (e.textContent = label));
+  document.querySelectorAll('[data-theme-toggle]').forEach((b) => {
+    const span = b.querySelector('[data-theme-label]');
+    b.innerHTML = `${icon(s.theme === 'dark' ? 'moon' : 'sun')}${span ? `<span data-theme-label>${label}</span>` : ''}`;
+  });
+}
+
+/* ---------------------------------------------------------------- router */
+
+function navigate(hash) {
+  if (location.hash === hash) render();
+  else location.hash = hash;
+}
+
+let renderToken = 0;
+
+/**
+ * Contexto por renderização. `stale()` existe porque o guard de token do
+ * roteador só protege até a view ser invocada: depois disso a própria view
+ * ainda faz `await` de rede e, ao voltar, poderia escrever em cima de uma rota
+ * mais nova. Toda view assíncrona checa `ctx.stale()` depois de cada await.
+ */
+const makeCtx = (token) => ({ navigate, stale: () => token !== renderToken });
+
+async function render() {
+  const hash = location.hash || '#/';
+  const route = ROUTES.find((r) => r.path.test(hash)) || ROUTES[0];
+  const match = hash.match(route.path);
+  const params = route.params ? route.params(match) : {};
+  const token = ++renderToken;
+
+  document.title = `${route.title} · TubeMetrics`;
+  document.body.classList.remove('nav-open');
+
+  const ctx = makeCtx(token);
+
+  if (route.shell === false) {
+    shellMounted = false;
+    const mod = await route.load();
+    if (token !== renderToken) return;
+    app.innerHTML = '';
+    await mod.default(app, params, ctx);
+    window.scrollTo(0, 0);
+    return;
+  }
+
+  if (!shellMounted) {
+    app.innerHTML = shellHtml();
+    shellMounted = true;
+    wireShell();
+  }
+  paintNav(route.nav);
+  qs('[data-crumb]').textContent = route.title;
+
+  const view = qs('[data-view]');
+  const mod = await route.load();
+  if (token !== renderToken) return;
+  await mod.default(view, params, ctx);
+  window.scrollTo(0, 0);
+}
+
+function wireShell() {
+  mountSearch(qs('[data-top-search]'), (c) => navigate(`#/canal/${c.id}`));
+  qs('[data-nav-open]').addEventListener('click', () => document.body.classList.add('nav-open'));
+  qs('[data-nav-close]').addEventListener('click', () => document.body.classList.remove('nav-open'));
+}
+
+/* ------------------------------------------------------- eventos globais */
+
+document.addEventListener('click', (e) => {
+  const navBtn = e.target.closest('[data-nav]');
+  if (navBtn) {
+    e.preventDefault();
+    navigate(navBtn.dataset.nav);
+    return;
+  }
+
+  const themeBtn = e.target.closest('[data-theme-toggle]');
+  if (themeBtn) {
+    store.toggleTheme();
+    if (shellMounted) paintNav(ROUTES.find((r) => r.path.test(location.hash || '#/'))?.nav);
+    // Os gráficos leem as variáveis CSS na hora de desenhar, então precisam
+    // ser repintados depois que o novo tema entra em vigor.
+    setTimeout(() => redrawAll(), 20);
+    return;
+  }
+
+  const goalClear = e.target.closest('[data-goal-clear]');
+  if (goalClear) {
+    store.set({ goal: { subscribers: null, deadline: null } });
+    render();
+  }
+});
+
+// Atalho: "/" foca a busca, como em ferramentas de dashboard.
+document.addEventListener('keydown', (e) => {
+  if (e.key === '/' && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) {
+    const input = qs('[data-top-search]') || qs('[data-search-input]');
+    if (input) { e.preventDefault(); input.focus(); }
+  }
+});
+
+window.addEventListener('hashchange', render);
+
+/* -------------------------------------------------------------- bootstrap */
+
+store.applyTheme(store.get().theme);
+render();
+
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
+}

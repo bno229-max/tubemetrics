@@ -1,0 +1,17 @@
+{
+  "name": "TubeMetrics — Análise de canais do YouTube",
+  "short_name": "TubeMetrics",
+  "description": "Métricas de canais do YouTube com insights gerados por estatística, sem inteligência artificial.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#ffffff",
+  "theme_color": "#ff0033",
+  "lang": "pt-BR",
+  "categories": ["productivity", "business", "utilities"],
+  "icons": [
+    { "src": "./icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "./icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
