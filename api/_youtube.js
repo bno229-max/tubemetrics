@@ -77,13 +77,25 @@ export async function fetchCategories(apiKey, regionCode = 'BR') {
 
 /* ----------------------------------------------------------------- busca */
 
-export async function searchChannels(query, apiKey, { maxResults = 6 } = {}) {
+/**
+ * Busca canais por nome.
+ *
+ * Pedimos 15 candidatos e devolvemos 6. Custa a mesma coisa: `search.list` cobra
+ * 100 unidades independentemente do `maxResults`, e `channels.list` cobra 1
+ * unidade para o lote inteiro. Candidatos extras saem de graça.
+ *
+ * A reordenação existe porque o `search.list` ranqueia por relevância textual e
+ * ignora o tamanho do canal: buscar "Porta dos Fundos" traz clones de 1 inscrito
+ * acima do canal verdadeiro. Numa ferramenta de métricas isso é inaceitável —
+ * quem procura um canal quer o canal, não a imitação.
+ */
+export async function searchChannels(query, apiKey, { maxResults = 6, candidates = 15 } = {}) {
   const found = await call(
     'search',
     {
       part: 'snippet',
       type: 'channel',
-      maxResults: String(maxResults),
+      maxResults: String(candidates),
       q: query,
       regionCode: 'BR',
       relevanceLanguage: 'pt',
@@ -95,7 +107,26 @@ export async function searchChannels(query, apiKey, { maxResults = 6 } = {}) {
   if (!ids.length) return [];
 
   const detail = await call('channels', { part: 'snippet,statistics,topicDetails', id: ids.join(',') }, apiKey);
-  return (detail.items || []).map(toChannelCard);
+  const cards = (detail.items || []).map(toChannelCard);
+
+  const norm = (s) =>
+    String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+  const alvo = norm(query);
+
+  const rank = (c) => {
+    const nome = norm(c.title);
+    const handle = norm(c.handle);
+    // Nome idêntico vence tudo; nome que contém o termo vem depois; o resto
+    // se ordena por tamanho, que é o melhor desempate disponível.
+    if (nome === alvo || handle === alvo) return 3;
+    if (nome.startsWith(alvo)) return 2;
+    if (nome.includes(alvo)) return 1;
+    return 0;
+  };
+
+  return cards
+    .sort((a, b) => rank(b) - rank(a) || b.statistics.subscriberCount - a.statistics.subscriberCount)
+    .slice(0, maxResults);
 }
 
 function toChannelCard(c) {
