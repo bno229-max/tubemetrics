@@ -286,15 +286,138 @@ export function topicSubscriberConversion(videos, { groupField = 'topic', minVid
     // 4. ORDENAR
     .sort((a, b) => b.subsPer1k - a.subsPer1k);
 
+  // "Outros" é a ausência de tema, não um tema: aparece na tabela como contexto,
+  // mas não pode ser eleito o melhor nem o pior assunto do canal.
+  const elegivel = (r) => r.reliable && r.name !== 'Outros';
+
   return {
     rows,
     channelSubsPer1k: channelRate * 1000,
-    best: rows.find((r) => r.reliable) || rows[0] || null,
-    worst: [...rows].reverse().find((r) => r.reliable) || null,
+    best: rows.find(elegivel) || null,
+    worst: [...rows].reverse().find(elegivel) || null,
     metric,
     noun,
     metricLabel: `${engagement ? 'Interações' : 'Inscritos'} / mil views`,
   };
+}
+
+/* ------------------------------------------------- temas a partir do título */
+
+/**
+ * Palavras que aparecem em qualquer título e não indicam assunto.
+ * Sem acento porque a normalização remove diacríticos antes de comparar.
+ */
+const STOPWORDS = new Set(`a o e de da do das dos em no na nos nas um uma uns umas para por com sem sob sobre
+entre ate apos antes depois quando onde quem qual quais que como porque entao tambem ainda agora hoje ontem
+tras frente dentro fora cima baixo lado junto perto longe meio tipo jeito forma casa dentro assim
+tras frente dentro fora cima baixo lado junto perto longe meio antes tipo jeito forma vezes
+amanha isso esse essa este esta isto aquele aquela seu sua seus suas meu minha meus minhas dele dela deles delas
+nosso nossa eu tu ele ela nos vos eles elas voce voces se sim nao mais menos muito muita muitos muitas todo toda
+todos todas outro outra outros outras mesmo mesma ser sou foi era sao ter tem tinha vai vou fez faz feito fazer
+pode posso podem deve deve estao esta estou aqui ali la tudo nada algo alguem coisa coisas gente ver vez vezes
+dia dias ano anos hora horas minuto minutos primeiro primeira ultimo ultima novo nova novos novas melhor melhores
+pior video videos canal parte partes serie episodio live shorts short vlog the and for with you your this that
+what how why best new all from about`.split(/\s+/).filter(Boolean));
+
+/** Remove acentos e pontuação, deixando só palavras comparáveis. */
+const normalizeText = (s) =>
+  String(s || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ');
+
+/**
+ * Deriva temas dos TÍTULOS quando os metadados não servem.
+ *
+ * O problema real: a YouTube Data API só devolve ~15 categorias amplas, e um
+ * canal inteiro costuma cair numa só ("Ciência e tecnologia" para os 200 vídeos
+ * do Manual do Mundo). As tags também não salvam — canais profissionais repetem
+ * o mesmo bloco de tags em todo vídeo, e um termo presente em 100% dos vídeos
+ * não separa nada.
+ *
+ * O sinal que sobra está no título. O método é frequência de documento, o mesmo
+ * princípio do TF-IDF, sem nada de IA:
+ *
+ *   1. normaliza e tokeniza cada título, descartando palavras vazias;
+ *   2. conta em quantos vídeos cada termo aparece (DF);
+ *   3. mantém como candidato o termo que aparece em pelo menos `minDocs` vídeos
+ *      e em no máximo `maxShare` do catálogo — raro demais não sustenta
+ *      estatística, comum demais não diferencia;
+ *   4. cada vídeo recebe o candidato mais frequente do seu título, formando
+ *      grupos grandes o bastante para comparar.
+ *
+ * A categoria original é preservada em `category`.
+ */
+export function deriveTitleTopics(videos, { minDocs = 3, maxShare = 0.4, maxGroups = 9 } = {}) {
+  // Rótulo bonito por chave normalizada: "#BoraVê" continua legível mesmo
+  // depois de virar "boravê" → "borave" na comparação.
+  const labels = new Map();
+  const remember = (key, label) => {
+    if (!labels.has(key)) labels.set(key, label);
+  };
+
+  const tokensOf = (v) => {
+    const title = String(v.title || '');
+    const out = [];
+
+    // Hashtags primeiro: num canal elas marcam quadros e séries recorrentes,
+    // que é exatamente o tipo de agrupamento que interessa.
+    for (const tag of title.match(/#[\p{L}\p{N}_]{2,}/gu) || []) {
+      const key = normalizeText(tag).trim().replace(/\s+/g, '');
+      if (!key) continue;
+      remember(key, tag);
+      out.push(key);
+    }
+
+    // Percorre as palavras COM acento e grafia originais: a comparação usa a
+    // forma normalizada, mas o rótulo exibido preserva "BoraVê" e "Água" em vez
+    // de "Borave" e "Agua".
+    for (const word of title.replace(/#[\p{L}\p{N}_]+/gu, ' ').split(/[^\p{L}\p{N}]+/u)) {
+      const key = normalizeText(word).trim();
+      if (key.length < 4 || STOPWORDS.has(key) || /^\d+$/.test(key)) continue;
+      // Título em CAIXA ALTA é estilo do canal, não ênfase de assunto.
+      const label = /^[\p{Lu}\p{N}]+$/u.test(word)
+        ? word.charAt(0) + word.slice(1).toLowerCase()
+        : word;
+      remember(key, label.charAt(0).toUpperCase() + label.slice(1));
+      out.push(key);
+    }
+    return [...new Set(out)];
+  };
+
+  const docs = videos.map(tokensOf);
+  const df = docs.reduce((acc, terms) => {
+    for (const t of terms) acc[t] = (acc[t] || 0) + 1;
+    return acc;
+  }, {});
+
+  const ceiling = Math.max(minDocs, Math.floor(videos.length * maxShare));
+  const isHashtag = (t) => labels.get(t)?.startsWith('#');
+  const candidate = (t) => df[t] >= minDocs && df[t] <= ceiling;
+
+  const labeled = videos.map((v, i) => {
+    const picks = docs[i].filter(candidate).sort((a, b) => {
+      // Hashtag vence palavra solta: ela foi escolhida pelo autor para marcar
+      // a série, então descreve o assunto melhor que qualquer termo inferido.
+      if (isHashtag(a) !== isHashtag(b)) return isHashtag(a) ? -1 : 1;
+      return df[b] - df[a] || a.localeCompare(b);
+    });
+    const term = picks[0];
+    return { ...v, category: v.topic, topic: term ? labels.get(term) : 'Outros' };
+  });
+
+  // Muitos grupos minúsculos poluem a tabela; concentramos a cauda em "Outros".
+  const counts = labeled.reduce((acc, v) => ((acc[v.topic] = (acc[v.topic] || 0) + 1), acc), {});
+  const keep = new Set(
+    Object.entries(counts)
+      .filter(([name]) => name !== 'Outros')
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, maxGroups)
+      .map(([name]) => name)
+  );
+
+  return labeled.map((v) => (keep.has(v.topic) ? v : { ...v, topic: 'Outros' }));
 }
 
 /** Distribuição de temas publicados (o "categorias mais publicadas" do §1A). */
@@ -322,8 +445,13 @@ export function tagPerformance(videos, minVideos = 4) {
     }
     return acc;
   }, {});
+  // Tag presente em quase todo vídeo é boilerplate do canal, não assunto:
+  // canais profissionais repetem o mesmo bloco de tags em tudo que publicam.
+  // Mantê-las produziria um ranking de termos que não separam nada.
+  const ceiling = videos.length * 0.6;
+
   return Object.values(map)
-    .filter((t) => t.videos >= minVideos)
+    .filter((t) => t.videos >= minVideos && t.videos <= ceiling)
     .map((t) => ({ ...t, subsPer1k: t.views ? (t.subs / t.views) * 1000 : 0, medianViews: t.views / t.videos }))
     .sort((a, b) => b.subsPer1k - a.subsPer1k);
 }
@@ -844,6 +972,22 @@ export function buildInsights(channel, a) {
     });
   }
 
+  // --- Tema que alcança muito e converte pouco ---------------------------
+  // O caso mais útil e menos óbvio: assunto que traz multidão de fora mas não
+  // transforma essa multidão em público. Ótimo para descoberta, fraco para base.
+  const chMedian = a.viewsPerVideo.median;
+  const temas = a.topics.rows.filter((r) => r.reliable && r.name !== 'Outros');
+  const vitrine = temas.find((r) => chMedian > 0 && r.medianViews > chMedian * 2 && r.vsChannel < -25);
+  if (vitrine) {
+    push({
+      tone: 'info',
+      icon: 'split',
+      title: `"${vitrine.name}" alcança muito, mas engaja pouco`,
+      body: `Esses vídeos fazem ${n(vitrine.medianViews / chMedian, 1)}× as views do vídeo típico do canal, porém geram ${Math.abs(Math.round(vitrine.vsChannel))}% menos ${noun} por mil views. É um tema de vitrine: serve para ser descoberto, não para converter quem chega.`,
+      evidence: `${vitrine.videos} vídeos · mediana de ${Math.round(vitrine.medianViews).toLocaleString('pt-BR')} views contra ${Math.round(chMedian).toLocaleString('pt-BR')} do canal`,
+    });
+  }
+
   // --- Melhor janela de publicação --------------------------------------
   const bt = a.publishTime;
   if (bt.bestBlock && bt.sample >= 15 && bt.lift > 8) {
@@ -999,18 +1143,35 @@ export function buildInsights(channel, a) {
  * Com `withPrivate: false` roda apenas o que a Data API pública permite.
  */
 export function analyze(channel, { withPrivate = false } = {}) {
-  const videos = channel.videos;
+  const raw = channel.videos;
   const daily = withPrivate ? channel.analytics?.daily ?? null : null;
-  const caps = dataCapabilities(videos);
+  const caps = dataCapabilities(raw);
+
+  // A categoria do YouTube costuma jogar o canal inteiro num único balde. Com
+  // menos de três grupos não há o que comparar, e aí os temas saem dos títulos.
+  const byCategory = topicDistribution(raw);
+  const useTitles = byCategory.length < 3;
+  const videos = useTitles ? deriveTitleTopics(raw) : raw;
+
+  // Tema inferido de título é sinal mais frágil que categoria declarada, então
+  // exige amostra maior para valer como recomendação.
+  const topicMinVideos = useTitles ? 5 : 3;
+  const grouped = videos.filter((v) => v.topic !== 'Outros').length;
 
   const a = {
     channel,
     videos,
     capabilities: caps,
+    topicBasis: useTitles ? 'títulos' : 'categorias',
+    topicCoverage: { grouped, total: videos.length },
+    categories: byCategory,
     viewsPerVideo: viewsPerVideo(videos),
     cadence: cadence(videos),
     format: shortsVsLong(videos),
-    topics: topicSubscriberConversion(videos, { metric: caps.subsPerVideo ? 'subsGained' : 'engagement' }),
+    topics: topicSubscriberConversion(videos, {
+      metric: caps.subsPerVideo ? 'subsGained' : 'engagement',
+      minVideos: topicMinVideos,
+    }),
     topicMix: topicDistribution(videos),
     tags: tagPerformance(videos),
     duration: durationAnalysis(videos),

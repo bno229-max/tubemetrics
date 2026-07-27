@@ -518,9 +518,11 @@ function tabAdvisor(host, ch, a, ctx) {
     <div class="section grid g2">
       ${sectionCard({
         title: `Qual tema gera mais ${topics.noun}`,
-        sub: `${topics.metricLabel}, com correção para amostras pequenas`,
+        sub: a.topicBasis === 'títulos'
+          ? `Temas detectados nos títulos · ${int(a.topicCoverage.grouped)} de ${int(a.topicCoverage.total)} vídeos agrupados`
+          : `${topics.metricLabel}, com correção para amostras pequenas`,
         pad: false,
-        body: topicTable(topics),
+        body: topicTable(topics, a),
       })}
       ${gate(sectionCard({
         title: 'Frequência ideal de postagem',
@@ -578,7 +580,7 @@ function tabAdvisor(host, ch, a, ctx) {
   }
 }
 
-function topicTable(topics) {
+function topicTable(topics, a) {
   const max = Math.max(...topics.rows.map((r) => r.subsPer1k), 1);
   const Noun = topics.noun.charAt(0).toUpperCase() + topics.noun.slice(1);
   return `<div class="tbl-wrap"><table class="tbl">
@@ -599,6 +601,11 @@ function topicTable(topics) {
     </tbody>
   </table></div>
   <div style="padding:12px 16px;border-top:1px solid var(--border)" class="muted fs12">
+    ${a?.topicBasis === 'títulos'
+      ? `O YouTube classificou os ${int(a.topicCoverage.total)} vídeos numa única categoria (<b>${esc(a.categories[0]?.name || '—')}</b>),
+         que não separa nada. Os temas acima vêm de termos e hashtags que se repetem nos títulos, pela frequência com que
+         aparecem. Vídeos sem termo recorrente ficam em "Outros" — não é um tema, e por isso nunca é eleito melhor nem pior.<br>`
+      : ''}
     ${topics.metric === 'engagement'
       ? 'A API pública não informa inscritos por vídeo, então a conversão é medida em <b>interações</b> (curtidas + comentários). Conecte o canal para trocar por inscritos reais.<br>'
       : ''}
