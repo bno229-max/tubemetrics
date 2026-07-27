@@ -119,6 +119,26 @@ retenção aparece como "—". Cada troca é anunciada na interface.
 Isso é deliberado. Preencher os buracos com estimativa produziria recomendações confiantes e erradas
 — exatamente o tipo de coisa que a regra de ouro deste projeto existe para evitar.
 
+### Temas: por que não dá para usar a categoria do YouTube
+
+A Data API só tem ~15 categorias amplas, e um canal inteiro costuma cair numa só — os 200 vídeos do
+Manual do Mundo estão todos em "Ciência e tecnologia". As tags também não salvam: canais
+profissionais repetem o mesmo bloco em todo vídeo (11 tags idênticas em 100% dos uploads, no mesmo
+canal). Agrupar por qualquer um dos dois produz uma tabela de uma linha com 0% de variação.
+
+Quando a categoria não separa nada, `deriveTitleTopics()` extrai os temas dos **títulos** por
+frequência de documento — o princípio do TF-IDF, sem nada de IA:
+
+- termo precisa aparecer em ao menos 3 vídeos (sustenta estatística) e em no máximo 40% deles
+  (senão não diferencia);
+- hashtags têm prioridade, porque marcam quadros e séries escolhidos pelo próprio autor;
+- vídeos sem termo recorrente vão para "Outros", que nunca é eleito melhor nem pior tema;
+- a interface informa a base do agrupamento e quantos vídeos ficaram cobertos.
+
+No Manual do Mundo isso revelou o achado mais útil do relatório: vídeos sobre **carro** fazem 11× as
+views do vídeo típico e engajam 53% menos. Alcance de vitrine, conversão fraca — invisível em
+qualquer agrupamento por categoria.
+
 Três arquivos concentram as decisões do produto — `plans.js` (o que cada plano libera),
 `api.js` (de onde vêm os dados) e `engine.js` (como o dado vira resposta). Nenhuma view importa
 `mock-data.js`: trocar mock por rede é editar um arquivo.
