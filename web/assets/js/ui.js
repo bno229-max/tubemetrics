@@ -215,8 +215,11 @@ export function avatar(channel, size = 44) {
   const [a, b] = channel.accent || ['#ff0033', '#7a0d3f'];
   const initials = String(channel.title || '?')
     .split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+  // Sem `loading="lazy"` de propósito: avatar tem 18–62 px, o lazy não economiza
+  // nada relevante e, em aba oculta ou sem composição, a imagem simplesmente
+  // nunca chega a carregar.
   const photo = channel.thumbnail
-    ? `<img src="${esc(channel.thumbnail)}" alt="" loading="lazy" referrerpolicy="no-referrer"
+    ? `<img src="${esc(channel.thumbnail)}" alt="" decoding="async" referrerpolicy="no-referrer"
          style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"
          onerror="this.remove()">`
     : '';
