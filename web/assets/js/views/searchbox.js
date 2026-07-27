@@ -1,6 +1,6 @@
 /** searchbox.js — Busca de canais com sugestões, reutilizada em várias telas. */
 
-import { searchChannels, listChannels } from '../api.js';
+import { searchChannels, topChannels } from '../api.js';
 import { avatar, icon } from '../ui.js';
 import { esc, compact } from '../format.js';
 
@@ -51,7 +51,9 @@ export function mountSearch(input, onPick) {
 
   const run = async (q) => {
     const mine = ++token;
-    const res = q.trim() ? await searchChannels(q) : await listChannels();
+    // Campo vazio mostra canais grandes de verdade, não o catálogo simulado:
+    // sugestão que não leva a lugar nenhum é pior que nenhuma sugestão.
+    const res = q.trim() ? await searchChannels(q) : await topChannels(6);
     if (mine !== token) return;
     items = res.slice(0, 6);
     cursor = -1;

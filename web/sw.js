@@ -31,6 +31,8 @@ const SHELL = [
   './assets/js/store.js',
   './assets/js/ui.js',
   './assets/js/views/compare.js',
+  './assets/js/views/signup.js',
+  './assets/js/views/top.js',
   './assets/js/views/creator.js',
   './assets/js/views/discover.js',
   './assets/js/views/landing.js',

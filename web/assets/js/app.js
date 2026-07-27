@@ -11,7 +11,7 @@ import * as store from './store.js';
 import { icon, qs } from './ui.js';
 import { redrawAll } from './charts.js';
 import { mountSearch } from './views/searchbox.js';
-import { can, limitOf, PLAN_BY_ID } from './plans.js';
+import { can, PLAN_BY_ID } from './plans.js';
 import { int } from './format.js';
 
 /* ------------------------------------------------------------------ rotas */
@@ -20,6 +20,7 @@ const ROUTES = [
   { path: /^#?\/?$/, shell: false, load: () => import('./views/landing.js'), title: 'Análise de canais do YouTube' },
   { path: /^#\/descobrir\/?$/, load: () => import('./views/discover.js'), nav: 'descobrir', title: 'Descobrir canais' },
   { path: /^#\/canal\/([^/]+)(?:\/([^/]+))?\/?$/, load: () => import('./views/public-report.js'), nav: 'descobrir', title: 'Relatório do canal', params: (m) => ({ id: m[1], tab: m[2] }) },
+  { path: /^#\/top\/?$/, load: () => import('./views/top.js'), nav: 'top', title: 'Top 20 canais' },
   { path: /^#\/comparar\/?$/, load: () => import('./views/compare.js'), nav: 'comparar', title: 'Comparar canais' },
   { path: /^#\/criador\/?$/, load: () => import('./views/creator.js'), nav: 'criador', title: 'Dashboard do Criador' },
   { path: /^#\/planos\/?$/, load: () => import('./views/pricing.js'), nav: 'planos', title: 'Planos' },
@@ -30,6 +31,7 @@ const NAV = [
     group: 'Análise',
     items: [
       { id: 'descobrir', label: 'Descobrir canais', icon: 'search', href: '#/descobrir' },
+      { id: 'top', label: 'Top 20 canais', icon: 'trophy', href: '#/top', feature: 'top_channels' },
       { id: 'comparar', label: 'Comparar canais', icon: 'compare', href: '#/comparar', feature: 'compare_channels' },
     ],
   },
@@ -99,19 +101,18 @@ function paintNav(activeId) {
       }).join('')}
     </div>`).join('');
 
-  const quota = limitOf(s.plan, 'searchesPerDay');
-  const used = store.searchesToday();
+  const { used, limit } = store.searchQuota();
   const planName = PLAN_BY_ID[s.plan].name;
 
   qs('[data-plan-box]').innerHTML = `
     <div class="row">
       <span class="name">Plano ${planName}</span>
-      ${s.plan === 'free' ? '<a href="#/planos" class="chip chip-brand">Fazer upgrade</a>' : '<span class="chip chip-pos">Ativo</span>'}
+      ${s.plan === 'creator' ? '<span class="chip chip-pos">Ativo</span>' : '<a href="#/planos" class="chip chip-brand">Fazer upgrade</a>'}
     </div>
-    ${quota === Infinity
-      ? '<div class="hint" style="margin-top:8px">Buscas ilimitadas</div>'
-      : `<div class="meter"><i style="width:${Math.min(100, (used / quota) * 100)}%"></i></div>
-         <div class="hint">${int(Math.min(used, quota))} de ${int(quota)} buscas usadas hoje</div>`}`;
+    ${limit === Infinity
+      ? '<div class="hint" style="margin-top:8px">Análises ilimitadas</div>'
+      : `<div class="meter"><i style="width:${Math.min(100, (used / limit) * 100)}%"></i></div>
+         <div class="hint">${int(Math.min(used, limit))} de ${int(limit)} análises neste mês</div>`}`;
 
   const label = s.theme === 'dark' ? 'Tema escuro' : 'Tema claro';
   document.querySelectorAll('[data-theme-label]').forEach((e) => (e.textContent = label));
@@ -176,7 +177,10 @@ async function render() {
 }
 
 function wireShell() {
-  mountSearch(qs('[data-top-search]'), (c) => navigate(`#/canal/${c.id}`));
+  mountSearch(qs('[data-top-search]'), async (c) => {
+    const { ensureLead } = await import('./views/signup.js');
+    if (await ensureLead()) navigate(`#/canal/${c.id}`);
+  });
   qs('[data-nav-open]').addEventListener('click', () => document.body.classList.add('nav-open'));
   qs('[data-nav-close]').addEventListener('click', () => document.body.classList.remove('nav-open'));
 }

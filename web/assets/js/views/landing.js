@@ -2,9 +2,10 @@
 
 import { icon, avatar, toast } from '../ui.js';
 import { mountSearch } from './searchbox.js';
-import { listChannels } from '../api.js';
+import { topChannels } from '../api.js';
+import { ensureLead } from './signup.js';
 import { PLANS } from '../plans.js';
-import { esc, money0 } from '../format.js';
+import { esc, money } from '../format.js';
 import * as store from '../store.js';
 
 const FEATURES = [
@@ -17,7 +18,7 @@ const FEATURES = [
 ];
 
 const STEPS = [
-  { n: '1', t: 'Busque qualquer canal', d: 'Só dados públicos da YouTube Data API. Sem login, sem permissão do dono do canal.' },
+  { n: '1', t: 'Busque qualquer canal', d: 'Só dados públicos da YouTube Data API. Sem permissão do dono do canal.' },
   { n: '2', t: 'Leia os cruzamentos', d: 'O motor roda dezenas de agrupamentos e devolve resposta pronta — não um gráfico para você interpretar.' },
   { n: '3', t: 'Conecte seu canal', d: 'Com OAuth do Google, entram receita, RPM, CTR de miniatura, retenção e fontes de tráfego.' },
 ];
@@ -35,28 +36,26 @@ export default async function landing(root, _params, ctx) {
 
       <header class="hero">
         <div class="hero-inner">
-          <div class="no-ai-band">${icon('shield')} Nenhum insight gerado por IA — só estatística auditável</div>
-          <h1 style="margin-top:20px">Métricas de YouTube que já vêm <em>com a resposta</em></h1>
+          <h1>Métricas de YouTube que já vêm <em>com a resposta</em></h1>
           <p>Analise qualquer canal com dados públicos. Conecte o seu para ver receita, retenção e CTR reais.
              Cada número desta plataforma sai de uma fórmula que você pode conferir.</p>
 
           <form class="hero-search" data-search-form>
             <div class="search-wrap">
               ${icon('search')}
-              <input class="input" type="search" placeholder="Busque um canal: @devrocket, cozinha, games…" aria-label="Buscar canal" autocomplete="off" data-search-input>
+              <input class="input" type="search" placeholder="Busque um canal pelo nome ou @handle" aria-label="Buscar canal" autocomplete="off" data-search-input>
             </div>
             <button class="btn btn-primary btn-lg" type="submit">Analisar ${icon('arrow')}</button>
           </form>
 
           <div class="suggest" data-suggest>
-            <span style="font-size:12.5px;color:var(--text-3);align-self:center;margin-right:2px">Tente:</span>
+            <span style="font-size:12.5px;color:var(--text-3);align-self:center;margin-right:2px">Acesse:</span>
           </div>
         </div>
       </header>
 
       <section class="lp-section">
-        <h2>O consultor de dados, sem consultor</h2>
-        <p class="lead">Seis cruzamentos que a maioria das ferramentas deixa para você fazer no olho.</p>
+        <h2>Métricas Oficiais para Criadores</h2>
         <div class="feat-grid">
           ${FEATURES.map((f) => `
             <div class="card feat-card">
@@ -80,14 +79,14 @@ export default async function landing(root, _params, ctx) {
 
       <section class="lp-section" style="padding-top:0">
         <h2>Planos</h2>
-        <p class="lead">Comece de graça. Suba quando os números começarem a decidir por você.</p>
+        <p class="lead">Comece de graça. Suba quando fazer sentido pra você.</p>
         <div class="price-grid" style="margin-top:30px">
           ${PLANS.map((p) => `
             <div class="card price-card${p.featured ? ' feat' : ''}">
               ${p.featured ? '<span class="tag">Mais popular</span>' : ''}
               <h3>${esc(p.name)}</h3>
               <div class="desc">${esc(p.tagline)}</div>
-              <div class="amt"><b>${p.price === 0 ? 'R$ 0' : money0(p.price)}</b><span>/mês</span></div>
+              <div class="amt"><b>${p.price === 0 ? 'R$ 0' : money(p.price)}</b><span>/mês</span></div>
               <ul>
                 ${p.highlights.slice(0, 5).map((h) => `<li>${icon('checkSmall')}<span>${esc(h)}</span></li>`).join('')}
               </ul>
@@ -96,41 +95,44 @@ export default async function landing(root, _params, ctx) {
         </div>
       </section>
 
-      <footer class="lp-foot">
-        TubeMetrics · dados de demonstração · YouTube Data API v3 + YouTube Analytics API v2 ·
-        nenhum modelo de linguagem participa da geração de insights
-      </footer>
+      <footer class="lp-foot">TubeMetrics · Criado por NCodexx</footer>
     </div>`;
 
-  // Sugestões de canais reais do dataset.
-  const channels = await listChannels();
-  if (ctx.stale()) return; // o usuário já navegou para outra rota
+  // Sugestões: canais reais de grande alcance, do mesmo ranking do Top 20.
   const sug = root.querySelector('[data-suggest]');
-  channels.slice(0, 4).forEach((c) => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.innerHTML = `${avatar(c, 16)} ${esc(c.title)}`;
-    b.addEventListener('click', () => ctx.navigate(`#/canal/${c.id}`));
-    sug.appendChild(b);
-  });
+  try {
+    const canais = await topChannels(5);
+    if (ctx.stale()) return;
+    for (const c of canais.slice(0, 5)) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.innerHTML = `${avatar(c, 18)} ${esc(c.title)}`;
+      b.addEventListener('click', () => openChannel(ctx, c.id));
+      sug.appendChild(b);
+    }
+  } catch {
+    sug.remove();
+  }
 
   const input = root.querySelector('[data-search-input]');
-  mountSearch(input, (c) => ctx.navigate(`#/canal/${c.id}`));
+  mountSearch(input, (c) => openChannel(ctx, c.id));
 
-  root.querySelector('[data-search-form]').addEventListener('submit', async (e) => {
+  root.querySelector('[data-search-form]').addEventListener('submit', (e) => {
     e.preventDefault();
-    const q = input.value.trim();
-    if (!q) return ctx.navigate('#/descobrir');
-    const list = await listChannels();
-    const hit = list.find((c) =>
-      c.title.toLowerCase().includes(q.toLowerCase()) || c.handle.toLowerCase().includes(q.toLowerCase())
-    );
-    if (hit) ctx.navigate(`#/canal/${hit.id}`);
-    else { toast('Nenhum canal encontrado com esse termo', 'error'); ctx.navigate('#/descobrir'); }
+    if (!input.value.trim()) return ctx.navigate('#/descobrir');
+    // A busca resolve por sugestão: escolher da lista evita gastar uma análise
+    // com um canal homônimo que não era o que a pessoa queria.
+    toast('Escolha um canal na lista de sugestões', 'info');
+    input.focus();
   });
 
   root.querySelector('[data-theme-toggle]').addEventListener('click', (e) => {
     const t = store.toggleTheme();
     e.currentTarget.innerHTML = icon(t === 'dark' ? 'moon' : 'sun');
   });
+}
+
+/** Cadastro é exigido antes de abrir qualquer relatório. */
+async function openChannel(ctx, id) {
+  if (await ensureLead()) ctx.navigate(`#/canal/${id}`);
 }

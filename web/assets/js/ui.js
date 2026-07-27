@@ -52,6 +52,9 @@ const ICONS = {
   sliders: '<path d="M4 8h10M18 8h2M4 16h4M12 16h8"/><circle cx="16" cy="8" r="2"/><circle cx="10" cy="16" r="2"/>',
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><circle cx="12" cy="7.8" r=".7" fill="currentColor"/>',
   video: '<rect x="2.5" y="6" width="13" height="12" rx="2.5"/><path d="m15.5 11 6-3v8l-6-3z"/>',
+  star: '<path d="m12 3.5 2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>',
+  starFilled: '<path d="m12 3.5 2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z" fill="currentColor"/>',
+  trophy: '<path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4.5v1.5A3.5 3.5 0 0 0 8 11"/><path d="M17 6h2.5v1.5A3.5 3.5 0 0 1 16 11"/><path d="M12 14v3"/><path d="M8.5 20h7"/><path d="M10 17h4l.7 3h-5.4z"/>',
 };
 
 /**
@@ -201,10 +204,23 @@ export function emptyState({ title, note, iconName = 'search', action = '' }) {
 
 /* ------------------------------------------------------------- avatares */
 
+/**
+ * Avatar do canal: foto real quando a API fornece, iniciais como alternativa.
+ *
+ * O gradiente fica embaixo da imagem de propósito — se a foto não carregar
+ * (perfil removido, hotlink bloqueado), o `onerror` some com o `<img>` e as
+ * iniciais aparecem no lugar, sem buraco no layout.
+ */
 export function avatar(channel, size = 44) {
   const [a, b] = channel.accent || ['#ff0033', '#7a0d3f'];
-  const initials = channel.title.split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
-  return `<div class="avatar" style="width:${size}px;height:${size}px;font-size:${Math.round(size * 0.38)}px;background:linear-gradient(140deg,${a},${b})">${esc(initials)}</div>`;
+  const initials = String(channel.title || '?')
+    .split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+  const photo = channel.thumbnail
+    ? `<img src="${esc(channel.thumbnail)}" alt="" loading="lazy" referrerpolicy="no-referrer"
+         style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"
+         onerror="this.remove()">`
+    : '';
+  return `<div class="avatar" style="position:relative;width:${size}px;height:${size}px;font-size:${Math.round(size * 0.38)}px;background:linear-gradient(140deg,${a},${b})">${esc(initials)}${photo}</div>`;
 }
 
 /** Miniatura sintética — sem imagem externa, o app funciona offline. */

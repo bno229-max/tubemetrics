@@ -10,7 +10,8 @@ import {
   monthLabel, relativeDays, WEEKDAYS, hourLabel, listPt,
 } from '../format.js';
 import { estimateEarnings, recentViewsByFormat, RPM_PRESETS } from '../engine.js';
-import { can, limitOf, PLAN_BY_ID } from '../plans.js';
+import { can, limitOf, requiredPlan, PLAN_BY_ID } from '../plans.js';
+import { ensureLead } from './signup.js';
 import * as store from '../store.js';
 
 const TABS = [
@@ -24,11 +25,17 @@ export default async function publicReport(root, params, ctx) {
   const { id, tab = 'visao' } = params;
   const s = store.get();
 
-  /* --- cota do plano Grátis ------------------------------------------- */
-  const quota = limitOf(s.plan, 'searchesPerDay');
+  // Cadastro é a porta de entrada de qualquer análise.
+  if (!store.hasLead()) {
+    const ok = await ensureLead();
+    if (!ok) return ctx.navigate('#/descobrir');
+  }
+
+  /* --- cota mensal do plano ------------------------------------------- */
+  const quota = store.searchQuota();
   const isNew = !store.alreadySearched(id);
-  if (quota !== Infinity && isNew && store.searchesToday() >= quota) {
-    root.innerHTML = quotaWall(quota);
+  if (quota.limit !== Infinity && isNew && quota.remaining <= 0) {
+    root.innerHTML = quotaWall(quota.limit);
     return;
   }
 
@@ -42,10 +49,11 @@ export default async function publicReport(root, params, ctx) {
   }
 
   store.consumeSearch(id);
-  store.pushRecent(report.channel);
+  store.pushHistory(report.channel);
 
   const { channel: ch, analysis: a } = report;
   const inCompare = store.get().compare.includes(id);
+  const favorito = store.isFavorite(id);
 
   root.innerHTML = `
     <div class="page">
@@ -64,6 +72,10 @@ export default async function publicReport(root, params, ctx) {
             </div>
           </div>
           <div class="actions" style="align-self:flex-start">
+            <button class="btn btn-sm" data-favorite aria-pressed="${favorito}"
+              style="${favorito ? 'color:var(--yt-600);border-color:var(--yt-500);background:var(--yt-soft)' : ''}">
+              ${icon(favorito ? 'starFilled' : 'star')} ${favorito ? 'Favoritado' : 'Favoritar'}
+            </button>
             <button class="btn btn-sm" data-compare>${icon('compare')} ${inCompare ? 'Na comparação' : 'Comparar'}</button>
             <button class="btn btn-primary btn-sm" data-nav="#/criador">${icon('google')} Conectar meu canal</button>
           </div>
@@ -85,13 +97,34 @@ export default async function publicReport(root, params, ctx) {
   });
 
   root.querySelector('[data-compare]').addEventListener('click', () => {
-    if (!can(store.get().plan, 'compare_channels')) {
-      toast('Comparação de canais é um recurso do plano Pro', 'error');
-      return ctx.navigate('#/planos');
+    const r = store.toggleCompare(id);
+    if (!r.ok) {
+      toast(
+        r.reason === 'plan'
+          ? `Comparação de canais começa no plano ${PLAN_BY_ID[requiredPlan('compare_channels')].name}`
+          : `Seu plano permite comparar até ${r.limit} canais. Remova um para adicionar outro.`,
+        'error'
+      );
+      if (r.reason === 'plan') ctx.navigate('#/planos');
+      return;
     }
-    store.toggleCompare(id);
-    const now = store.get().compare.includes(id);
-    toast(now ? `${ch.title} adicionado à comparação` : `${ch.title} removido da comparação`, 'success');
+    toast(r.added ? `${ch.title} adicionado à comparação` : `${ch.title} removido da comparação`, 'success');
+    ctx.navigate(`#/canal/${id}/${tab}`);
+  });
+
+  root.querySelector('[data-favorite]').addEventListener('click', () => {
+    const r = store.toggleFavorite(ch);
+    if (!r.ok) {
+      toast(
+        r.reason === 'plan'
+          ? `Favoritos começam no plano ${PLAN_BY_ID[requiredPlan('favorites')].name}`
+          : `Seu plano permite ${r.limit} favoritos. Remova um para salvar outro.`,
+        'error'
+      );
+      if (r.reason === 'plan') ctx.navigate('#/planos');
+      return;
+    }
+    toast(r.added ? `${ch.title} salvo nos favoritos` : `${ch.title} removido dos favoritos`, 'success');
     ctx.navigate(`#/canal/${id}/${tab}`);
   });
 }
@@ -126,7 +159,7 @@ function sourceBanner(report, a) {
   return `<div class="insight ${report.stale ? 'warn' : 'pos'}" style="margin-bottom:18px">
     <div class="ico">${icon(report.stale ? 'alert' : 'check')}</div>
     <div class="grow">
-      <h4>Dados reais da YouTube Data API${report.cached ? ' (em cache)' : ''}</h4>
+      <h4>YouTube Analytics Free${report.cached ? ' (em cache)' : ''}</h4>
       <p>${report.stale
           ? 'A cota do dia acabou, então estamos mostrando a última coleta bem-sucedida.'
           : `Métricas públicas do canal${quando}.`}
@@ -827,10 +860,10 @@ function loadingSkeleton() {
 function quotaWall(quota) {
   return `<div class="page"><div class="card" style="padding:40px;text-align:center;max-width:520px;margin:40px auto">
     <div style="width:44px;height:44px;border-radius:12px;background:var(--yt-soft);color:var(--yt-500);display:grid;place-items:center;margin:0 auto 16px">${icon('lock')}</div>
-    <h2 style="font-size:19px;font-weight:660;letter-spacing:-.02em">Você usou suas ${quota} buscas de hoje</h2>
+    <h2 style="font-size:19px;font-weight:660;letter-spacing:-.02em">Você usou suas ${int(quota)} análises deste mês</h2>
     <p class="txt-2 fs13" style="margin-top:8px;line-height:1.55">
-      O plano Grátis analisa ${quota} canais por dia. Canais já consultados hoje continuam abertos sem consumir cota.
-      No Pro o limite deixa de existir na prática.
+      Seu plano permite ${int(quota)} ${quota === 1 ? 'canal' : 'canais'} por mês. Os que você já analisou continuam
+      abertos no histórico, sem consumir cota. A cota volta a zerar na virada do mês.
     </p>
     <div class="flex g8" style="justify-content:center;margin-top:20px">
       <button class="btn" data-nav="#/descobrir">Voltar</button>

@@ -152,6 +152,33 @@ function toChannelCard(c) {
   };
 }
 
+/**
+ * Resolve vários canais por handle (@nome).
+ *
+ * `channels.list` aceita um único `forHandle` por chamada, então são N
+ * requisições de 1 unidade — ainda assim, muito mais barato que `search.list`
+ * (100 unidades por termo). As chamadas vão em paralelo e handles que falham
+ * são descartados: canal renomeado não pode derrubar a lista inteira.
+ */
+export async function fetchChannelsByHandles(handles, apiKey) {
+  const results = await Promise.allSettled(
+    handles.map((h) =>
+      call('channels', { part: 'snippet,statistics,topicDetails', forHandle: h.replace(/^@/, '') }, apiKey)
+    )
+  );
+
+  const seen = new Set();
+  const out = [];
+  for (const r of results) {
+    if (r.status !== 'fulfilled') continue;
+    const item = r.value?.items?.[0];
+    if (!item || seen.has(item.id)) continue;
+    seen.add(item.id);
+    out.push(toChannelCard(item));
+  }
+  return out;
+}
+
 /* -------------------------------------------------- relatório de um canal */
 
 /**

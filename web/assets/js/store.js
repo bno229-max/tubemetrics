@@ -1,21 +1,30 @@
 /**
  * store.js — Estado da sessão com persistência em localStorage.
  *
- * Guarda plano ativo, tema, canais consultados e a cota diária de buscas do
- * plano Grátis. Publish/subscribe simples: nenhuma tela lê localStorage direto.
+ * Guarda plano ativo, tema, cadastro, favoritos, histórico de pesquisa e a cota
+ * mensal de análises. Publish/subscribe simples: nenhuma tela lê localStorage
+ * direto.
  */
 
-const KEY = 'tubemetrics.state.v1';
+import { isValidPlan, limitOf } from './plans.js';
+
+// v2: a cota virou mensal e entraram cadastro, favoritos e histórico. A chave
+// nova evita ler um estado antigo com formato incompatível.
+const KEY = 'tubemetrics.state.v2';
 
 const DEFAULTS = {
   plan: 'free',
   theme: 'light',
   connected: false,
   connectedChannels: [],
-  searchDate: '',
-  searchCount: 0,
+  /** Cadastro do usuário (nome, telefone, e-mail). `null` = ainda não fez. */
+  lead: null,
+  /** Cota mensal: mês corrente e canais já analisados nele. */
+  searchMonth: '',
   searchedIds: [],
-  recent: [],
+  /** Canais analisados, com dados de exibição para o histórico. */
+  history: [],
+  favorites: [],
   compare: [],
   rpmPreset: 'tech',
   customRpm: null,
@@ -25,7 +34,11 @@ const DEFAULTS = {
 function load() {
   try {
     const raw = localStorage.getItem(KEY);
-    return raw ? { ...DEFAULTS, ...JSON.parse(raw) } : { ...DEFAULTS };
+    const saved = raw ? JSON.parse(raw) : {};
+    const merged = { ...DEFAULTS, ...saved };
+    // Plano gravado por uma versão antiga do empacotamento não existe mais.
+    if (!isValidPlan(merged.plan)) merged.plan = 'free';
+    return merged;
   } catch {
     return { ...DEFAULTS };
   }
@@ -57,47 +70,112 @@ export function reset() {
   listeners.forEach((fn) => fn(state));
 }
 
-/* ------------------------------------------------------------ cota diária */
+/* ------------------------------------------------------------- cadastro */
 
-const today = () => new Date().toISOString().slice(0, 10);
+export const hasLead = () => !!state.lead?.email;
 
-/** Buscas já usadas hoje. Zera automaticamente na virada do dia. */
-export function searchesToday() {
-  if (state.searchDate !== today()) return 0;
-  return state.searchCount;
+export function saveLead({ name, phone, email }) {
+  set({ lead: { name, phone, email, at: new Date().toISOString() } });
 }
 
-/** Canais já analisados hoje não consomem cota de novo. */
-export function consumeSearch(channelId) {
-  const d = today();
-  if (state.searchDate !== d) {
-    set({ searchDate: d, searchCount: 0, searchedIds: [] });
-  }
-  if (state.searchedIds.includes(channelId)) return;
-  set((s) => ({ searchCount: s.searchCount + 1, searchedIds: [...s.searchedIds, channelId] }));
+/* ------------------------------------------------------------ cota mensal */
+
+const currentMonth = () => new Date().toISOString().slice(0, 7);
+
+/** Análises já usadas no mês. Zera sozinha na virada. */
+export function searchesThisMonth() {
+  return state.searchMonth === currentMonth() ? state.searchedIds.length : 0;
 }
 
+export function searchQuota() {
+  const limit = limitOf(state.plan, 'searchesPerMonth');
+  const used = searchesThisMonth();
+  return { used, limit, remaining: limit === Infinity ? Infinity : Math.max(0, limit - used) };
+}
+
+/** Canal já analisado neste mês não consome cota de novo. */
 export function alreadySearched(channelId) {
-  return state.searchDate === today() && state.searchedIds.includes(channelId);
+  return state.searchMonth === currentMonth() && state.searchedIds.includes(channelId);
 }
 
-/* ---------------------------------------------------------------- recentes */
+export function consumeSearch(channelId) {
+  const m = currentMonth();
+  if (state.searchMonth !== m) set({ searchMonth: m, searchedIds: [] });
+  if (state.searchedIds.includes(channelId)) return;
+  set((s) => ({ searchedIds: [...s.searchedIds, channelId] }));
+}
 
-export function pushRecent(channel) {
+/* --------------------------------------------------- histórico de pesquisa */
+
+/**
+ * Guarda o canal analisado. Mantém os dados de exibição (nome, foto, inscritos)
+ * para que o histórico carregue sem gastar uma nova chamada de API.
+ */
+export function pushHistory(channel) {
+  const entry = {
+    id: channel.id,
+    title: channel.title,
+    handle: channel.handle,
+    accent: channel.accent,
+    thumbnail: channel.thumbnail || null,
+    subscriberCount: channel.statistics?.subscriberCount ?? null,
+    videoCount: channel.statistics?.videoCount ?? null,
+    viewCount: channel.statistics?.viewCount ?? null,
+    at: new Date().toISOString(),
+  };
+  set((s) => ({ history: [entry, ...s.history.filter((h) => h.id !== channel.id)].slice(0, 24) }));
+}
+
+export function clearHistory() {
+  set({ history: [] });
+}
+
+/* ------------------------------------------------------------- favoritos */
+
+export const isFavorite = (id) => state.favorites.some((f) => f.id === id);
+
+/**
+ * Alterna favorito respeitando o teto do plano.
+ * Devolve `{ ok, reason }` para a tela explicar a recusa em vez de só ignorar.
+ */
+export function toggleFavorite(channel) {
+  const limit = limitOf(state.plan, 'favorites');
+  if (isFavorite(channel.id)) {
+    set((s) => ({ favorites: s.favorites.filter((f) => f.id !== channel.id) }));
+    return { ok: true, added: false };
+  }
+  if (limit === 0) return { ok: false, reason: 'plan' };
+  if (state.favorites.length >= limit) return { ok: false, reason: 'limit', limit };
+
   set((s) => ({
-    recent: [
-      { id: channel.id, title: channel.title, handle: channel.handle, accent: channel.accent },
-      ...s.recent.filter((r) => r.id !== channel.id),
-    ].slice(0, 6),
+    favorites: [
+      ...s.favorites,
+      {
+        id: channel.id,
+        title: channel.title,
+        handle: channel.handle,
+        accent: channel.accent,
+        thumbnail: channel.thumbnail || null,
+        subscriberCount: channel.statistics?.subscriberCount ?? null,
+      },
+    ],
   }));
+  return { ok: true, added: true };
 }
 
 /* ---------------------------------------------------------------- compare */
 
+/** Mesmo contrato do favorito: o teto de slots varia por plano. */
 export function toggleCompare(id) {
-  set((s) => ({
-    compare: s.compare.includes(id) ? s.compare.filter((x) => x !== id) : [...s.compare, id].slice(-4),
-  }));
+  const limit = limitOf(state.plan, 'comparisonSlots');
+  if (state.compare.includes(id)) {
+    set((s) => ({ compare: s.compare.filter((x) => x !== id) }));
+    return { ok: true, added: false };
+  }
+  if (limit === 0) return { ok: false, reason: 'plan' };
+  if (state.compare.length >= limit) return { ok: false, reason: 'limit', limit };
+  set((s) => ({ compare: [...s.compare, id] }));
+  return { ok: true, added: true };
 }
 
 /* ------------------------------------------------------------------- tema */

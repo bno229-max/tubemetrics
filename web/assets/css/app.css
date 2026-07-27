@@ -747,7 +747,8 @@ table.tbl tbody tr:hover { background: var(--surface-2); }
 .modal-foot { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; }
 
 /* --- pricing --- */
-.price-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+/* Auto-fit para não precisar mexer no CSS a cada plano novo no catálogo. */
+.price-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
 .price-card { padding: 24px; display: flex; flex-direction: column; position: relative; }
 .price-card.feat { border-color: var(--yt-500); box-shadow: 0 0 0 1px var(--yt-500), var(--sh-2); }
 .price-card .tag {

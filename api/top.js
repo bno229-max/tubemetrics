@@ -1,0 +1,89 @@
+/**
+ * GET /api/top?limit=20 — ranking de canais por inscritos.
+ *
+ * A YouTube Data API **não** tem endpoint de "canais mais inscritos". O que
+ * existe é `search.list`, que ordena por relevância textual e custa 100
+ * unidades — inviável para montar um ranking.
+ *
+ * A solução honesta é uma lista curada de canais brasileiros conhecidos,
+ * resolvida por handle (`channels.list?forHandle=`, 1 unidade cada) e ordenada
+ * pelos inscritos REAIS que a API devolve. O recorte é editorial; os números
+ * não são.
+ *
+ * Handles que não resolvem (canal renomeado, handle trocado) são simplesmente
+ * ignorados — a lista encolhe, nada quebra.
+ */
+
+import { fetchChannelsByHandles, YouTubeError } from './_youtube.js';
+import { json, fail, guard, handleYouTubeError } from './_http.js';
+
+/**
+ * Curadoria de canais brasileiros de grande alcance, variando nicho de
+ * propósito: ciência, humor, games, culinária, música e entrevista.
+ */
+const SEED_HANDLES = [
+  'manualdomundo',
+  'portadosfundos',
+  'Whinderssonnunes',
+  'felipeneto',
+  'luccasneto',
+  'rezendeevil',
+  'AuthenticGames',
+  'canalnostalgia',
+  'Nerdologia',
+  'castanhari',
+  'cheffotto',
+  'panelaterapia',
+  'kondzilla',
+  'flowpodcast',
+  'vocesabia',
+  'tvculturadigital',
+  'CanalCienciaTodoDia',
+  'peixebabel',
+  'GustavoCerbasi',
+  'meupriprio',
+  'jout_jout',
+  'diycore',
+  'BrancoalaOficial',
+  'CanalDoSlow',
+];
+
+/** 12 horas: inscritos de canal grande não mudam de forma relevante em um dia. */
+const CACHE_TOP = 'public, s-maxage=43200, stale-while-revalidate=172800';
+
+export default async function handler(req, res) {
+  const apiKey = guard(req, res);
+  if (!apiKey) return;
+
+  const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 20));
+
+  try {
+    const channels = await fetchChannelsByHandles(SEED_HANDLES, apiKey);
+
+    if (!channels.length) {
+      return fail(res, 502, 'noChannels', 'Nenhum canal da lista pôde ser resolvido.');
+    }
+
+    const ranked = channels
+      .sort((a, b) => b.statistics.subscriberCount - a.statistics.subscriberCount)
+      .slice(0, limit)
+      .map((c, i) => ({ ...c, rank: i + 1 }));
+
+    return json(
+      res,
+      200,
+      {
+        channels: ranked,
+        total: ranked.length,
+        resolved: channels.length,
+        requested: SEED_HANDLES.length,
+        fetchedAt: new Date().toISOString(),
+      },
+      CACHE_TOP
+    );
+  } catch (err) {
+    if (err instanceof YouTubeError) return handleYouTubeError(res, err);
+    console.error('Erro inesperado no ranking:', err);
+    return fail(res, 500, 'internal', 'Erro interno ao montar o ranking.');
+  }
+}

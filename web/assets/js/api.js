@@ -92,10 +92,31 @@ export async function searchChannels(query) {
   );
 }
 
-/** Catálogo da vitrine — existe só no mock, é a demonstração da landing. */
+/** Catálogo simulado — usado apenas quando o backend não responde. */
 export async function listChannels() {
   await latency(120);
   return CHANNELS.map(toChannelCard);
+}
+
+/**
+ * GET /api/top — ranking por inscritos de uma lista curada de canais reais.
+ * Cai para o catálogo simulado quando o backend não está disponível.
+ */
+export async function topChannels(limit = 20) {
+  return withFallback(
+    async () => {
+      const body = await request('/top', { limit });
+      return body.channels;
+    },
+    async () => {
+      await latency(200);
+      return [...CHANNELS]
+        .map(toChannelCard)
+        .sort((a, b) => b.statistics.subscriberCount - a.statistics.subscriberCount)
+        .slice(0, limit)
+        .map((c, i) => ({ ...c, rank: i + 1 }));
+    }
+  );
 }
 
 function toChannelCard(c) {
@@ -106,6 +127,7 @@ function toChannelCard(c) {
     description: c.description,
     country: c.country,
     accent: c.accent,
+    thumbnail: c.thumbnail || null,
     publishedAt: c.publishedAt,
     statistics: c.statistics,
     topicCategories: c.topicCategories,

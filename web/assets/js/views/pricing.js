@@ -2,14 +2,15 @@
 
 import { PLANS, FEATURES, LIMITS, PLAN_BY_ID, can } from '../plans.js';
 import { icon, toast, sectionCard } from '../ui.js';
-import { esc, int, money0 } from '../format.js';
+import { esc, int, money } from '../format.js';
 import * as store from '../store.js';
 
 const LIMIT_LABELS = {
-  searchesPerDay: 'Buscas de canal por dia',
+  searchesPerMonth: 'Análises de canal por mês',
+  favorites: 'Canais favoritos',
+  comparisonSlots: 'Canais em comparação',
   connectedChannels: 'Canais conectados',
   historyDays: 'Histórico disponível',
-  comparisonSlots: 'Canais em comparação',
   seats: 'Assentos de equipe',
   topVideos: 'Vídeos por ranking',
 };
@@ -43,7 +44,7 @@ export default async function pricing(root, _params, ctx) {
             ${p.featured ? '<span class="tag">Mais popular</span>' : ''}
             <h3>${esc(p.name)}</h3>
             <div class="desc">${esc(p.tagline)}</div>
-            <div class="amt"><b>${p.price === 0 ? 'R$ 0' : money0(p.price)}</b><span>/mês</span></div>
+            <div class="amt"><b>${p.price === 0 ? 'R$ 0' : money(p.price)}</b><span>/mês</span></div>
             <ul>
               ${p.highlights.map((h) => `<li>${icon('checkSmall')}<span>${esc(h)}</span></li>`).join('')}
               ${p.missing.map((h) => `<li class="off">${icon('close')}<span>${esc(h)}</span></li>`).join('')}
@@ -69,7 +70,7 @@ export default async function pricing(root, _params, ctx) {
                     ? `<span style="color:var(--pos);display:inline-block;width:16px">${icon('checkSmall')}</span>`
                     : `<span class="muted" style="display:inline-block;width:16px">${icon('close')}</span>`}</td>`).join('')}
                 </tr>`).join('')}
-              <tr><td colspan="4" style="background:var(--surface-2)"><span class="label">Limites numéricos</span></td></tr>
+              <tr><td colspan="${PLANS.length + 1}" style="background:var(--surface-2)"><span class="label">Limites numéricos</span></td></tr>
               ${Object.keys(LIMIT_LABELS).map((key) => `
                 <tr><td><b style="font-weight:550">${esc(LIMIT_LABELS[key])}</b>
                   <div class="muted" style="font-family:var(--mono);font-size:11px;margin-top:2px">${esc(key)}</div></td>
