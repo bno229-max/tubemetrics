@@ -29,7 +29,20 @@ import { randomBytes, createHash, createCipheriv, createDecipheriv } from 'node:
 import { FieldValue } from 'firebase-admin/firestore';
 import { firestore, firestoreReady } from './_firebase.js';
 
-const SESSION_SECRET = process.env.SESSION_SECRET || '';
+/**
+ * Painéis de variável de ambiente colam com frequência um espaço ou quebra de
+ * linha extra ao redor do valor — o Client ID já chegou aqui com um `\n` no
+ * final, o que faz o Google recusar o login porque o texto comparado deixa de
+ * bater byte a byte. `trim()` nas quatro variáveis de OAuth evita essa classe
+ * inteira de erro sem depender de colar com perfeição.
+ */
+const clean = (v) => (v || '').trim();
+
+export const googleClientId = () => clean(process.env.GOOGLE_CLIENT_ID);
+export const googleClientSecret = () => clean(process.env.GOOGLE_CLIENT_SECRET);
+export const oauthRedirectUri = () => clean(process.env.OAUTH_REDIRECT_URI);
+
+const SESSION_SECRET = clean(process.env.SESSION_SECRET);
 
 export const sessionSecretReady = () => !!SESSION_SECRET;
 

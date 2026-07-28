@@ -12,7 +12,7 @@
  * é stateless entre esta chamada e o callback.
  */
 
-import { randomToken, pkceChallenge, setCookie } from '../_session.js';
+import { randomToken, pkceChallenge, setCookie, googleClientId, oauthRedirectUri } from '../_session.js';
 import { fail } from '../_http.js';
 
 const SCOPES = [
@@ -25,8 +25,8 @@ const SCOPES = [
 const PKCE_MAX_AGE = 600;
 
 export default function handler(req, res) {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const redirectUri = process.env.OAUTH_REDIRECT_URI;
+  const clientId = googleClientId();
+  const redirectUri = oauthRedirectUri();
 
   if (!clientId || !redirectUri) {
     return fail(res, 503, 'oauthNotConfigured', 'OAuth do Google ainda não configurado nesta implantação.');

@@ -7,13 +7,15 @@
  * Dashboard do Criador lê isso para mostrar o toast certo.
  */
 
-import { parseCookies, setCookie, clearCookie, createSession, sessionStoreReady } from '../_session.js';
+import {
+  parseCookies, setCookie, clearCookie, createSession, sessionStoreReady,
+  googleClientId, googleClientSecret, oauthRedirectUri,
+} from '../_session.js';
 import { fetchOwnChannel } from '../_analytics.js';
 
 const APP_URL = (path) => {
-  const base = process.env.OAUTH_REDIRECT_URI
-    ? new URL(process.env.OAUTH_REDIRECT_URI).origin
-    : '';
+  const redirectUri = oauthRedirectUri();
+  const base = redirectUri ? new URL(redirectUri).origin : '';
   return `${base}/${path}`;
 };
 
@@ -23,9 +25,9 @@ function redirectToApp(res, hashQuery) {
 }
 
 export default async function handler(req, res) {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const redirectUri = process.env.OAUTH_REDIRECT_URI;
+  const clientId = googleClientId();
+  const clientSecret = googleClientSecret();
+  const redirectUri = oauthRedirectUri();
 
   if (!clientId || !clientSecret || !redirectUri) {
     return redirectToApp(res, 'erro=oauth_nao_configurado');

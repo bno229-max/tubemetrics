@@ -7,7 +7,7 @@
 
 import { json, fail, NO_CACHE } from './_http.js';
 import { storageReady } from './_store.js';
-import { sessionStoreReady } from './_session.js';
+import { sessionStoreReady, googleClientId, googleClientSecret, oauthRedirectUri } from './_session.js';
 
 export default function handler(req, res) {
   if (req.method !== 'GET') return fail(res, 405, 'methodNotAllowed', 'Use GET.');
@@ -17,7 +17,7 @@ export default function handler(req, res) {
   // integralmente, só não entram os rankings de crescimento nem o Dashboard
   // do Criador. Por isso nenhum dos dois entra no `ok` geral.
   const firestore = storageReady();
-  const oauthConfigured = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && process.env.OAUTH_REDIRECT_URI);
+  const oauthConfigured = !!(googleClientId() && googleClientSecret() && oauthRedirectUri());
   const sessionReady = sessionStoreReady();
 
   json(

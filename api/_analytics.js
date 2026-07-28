@@ -17,6 +17,8 @@
  * conectado; o motor de análise já sabe degradar sozinho quando falta.
  */
 
+import { googleClientId, googleClientSecret } from './_session.js';
+
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const ANALYTICS_URL = 'https://youtubeanalytics.googleapis.com/v2/reports';
 
@@ -33,8 +35,8 @@ export async function refreshAccessToken(refreshToken) {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
-      client_id: process.env.GOOGLE_CLIENT_ID,
-      client_secret: process.env.GOOGLE_CLIENT_SECRET,
+      client_id: googleClientId(),
+      client_secret: googleClientSecret(),
       refresh_token: refreshToken,
       grant_type: 'refresh_token',
     }),
