@@ -7,14 +7,18 @@
 
 import { json, fail, NO_CACHE } from './_http.js';
 import { storageReady } from './_store.js';
+import { sessionStoreReady } from './_session.js';
 
 export default function handler(req, res) {
   if (req.method !== 'GET') return fail(res, 405, 'methodNotAllowed', 'Use GET.');
 
   const hasKey = !!process.env.YOUTUBE_API_KEY;
-  // Firestore é opcional: sem ele o produto funciona, só não tem os rankings
-  // de crescimento. Por isso não entra no `ok` geral.
+  // Firestore e OAuth são opcionais: sem eles o modo público funciona
+  // integralmente, só não entram os rankings de crescimento nem o Dashboard
+  // do Criador. Por isso nenhum dos dois entra no `ok` geral.
   const firestore = storageReady();
+  const oauthConfigured = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && process.env.OAUTH_REDIRECT_URI);
+  const sessionReady = sessionStoreReady();
 
   json(
     res,
@@ -25,6 +29,9 @@ export default function handler(req, res) {
       apiKeyConfigured: hasKey,
       firestoreConfigured: firestore,
       cronSecretConfigured: !!process.env.CRON_SECRET,
+      oauthConfigured,
+      sessionSecretConfigured: sessionReady,
+      creatorDashboardReady: oauthConfigured && sessionReady,
       message: !hasKey
         ? 'Falta configurar YOUTUBE_API_KEY nas variáveis de ambiente da Vercel.'
         : firestore

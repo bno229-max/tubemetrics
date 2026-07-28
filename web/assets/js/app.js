@@ -23,7 +23,9 @@ const ROUTES = [
   { path: /^#\/top\/?$/, load: () => import('./views/top.js'), nav: 'top', title: 'Top 20 canais brasileiros' },
   { path: /^#\/rankings\/?$/, load: () => import('./views/rankings.js'), nav: 'rankings', title: 'Rankings' },
   { path: /^#\/comparar\/?$/, load: () => import('./views/compare.js'), nav: 'comparar', title: 'Comparar canais' },
-  { path: /^#\/criador\/?$/, load: () => import('./views/creator.js'), nav: 'criador', title: 'Dashboard do Criador' },
+  // Tolerante a `?conectado=1` / `?erro=...`: o callback do OAuth do Google
+  // volta para cá anexando o resultado do login como query no próprio hash.
+  { path: /^#\/criador\/?(?:\?.*)?$/, load: () => import('./views/creator.js'), nav: 'criador', title: 'Dashboard do Criador' },
   { path: /^#\/planos\/?$/, load: () => import('./views/pricing.js'), nav: 'planos', title: 'Planos' },
 ];
 

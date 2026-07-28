@@ -1,7 +1,7 @@
 /** creator.js — Dashboard do Criador (Modo B): dados privados via OAuth. */
 
-import { getCreatorReport, connectGoogleAccount, ownedChannelId } from '../api.js';
-import { icon, avatar, kpi, insightCard, sectionCard, segment, videoCell, gate, toast, modal } from '../ui.js';
+import { getCreatorReport, startGoogleConnect, disconnectGoogleAccount } from '../api.js';
+import { icon, avatar, kpi, insightCard, sectionCard, segment, videoCell, gate, toast, modal, emptyState } from '../ui.js';
 import { lineChart, barChart, hBarChart, donutChart, SERIES_COLORS } from '../charts.js';
 import {
   esc, compact, int, dec, pct, money, money0, compactMoney, duration, dateShort, watchHours,
@@ -31,12 +31,30 @@ export default async function creator(root, params, ctx) {
     return;
   }
 
-  if (!st.connected) return renderConnect(root, ctx);
+  // O callback do OAuth volta para cá anexando o resultado como query no hash
+  // (`#/criador?conectado=1` ou `#/criador?erro=codigo`). Lemos, avisamos com
+  // um toast e limpamos a URL sem disparar uma navegação nova.
+  const feedback = new URLSearchParams(location.hash.split('?')[1] || '');
+  if (feedback.has('conectado') || feedback.has('erro')) {
+    history.replaceState(null, '', location.pathname + location.search + '#/criador');
+  }
+  if (feedback.get('conectado') === '1') toast('Canal conectado com sucesso', 'success');
+  if (feedback.has('erro')) toast(oauthErrorMessage(feedback.get('erro')), 'error');
 
   root.innerHTML = `<div class="page"><div class="skel" style="height:420px;border-radius:14px"></div></div>`;
 
-  const report = await getCreatorReport(ownedChannelId());
+  let report;
+  try {
+    report = await getCreatorReport();
+  } catch (err) {
+    if (ctx.stale()) return;
+    root.innerHTML = `<div class="page">${connectionErrorState(err)}</div>`;
+    root.querySelector('[data-retry-analytics]')?.addEventListener('click', () => ctx.navigate('#/criador'));
+    return;
+  }
   if (ctx.stale()) return; // o usuário já navegou para outra rota
+  if (!report) return renderConnect(root, ctx);
+
   const { channel: ch, analysis: a } = report;
   let range = Number(params.range || 28);
 
@@ -73,8 +91,9 @@ export default async function creator(root, params, ctx) {
     paint();
   });
 
-  root.querySelector('[data-disconnect]').addEventListener('click', () => {
-    store.set({ connected: false, connectedChannels: [] });
+  root.querySelector('[data-disconnect]').addEventListener('click', async (e) => {
+    e.currentTarget.disabled = true;
+    await disconnectGoogleAccount();
     toast('Canal desconectado', 'success');
     ctx.navigate('#/criador');
   });
@@ -95,8 +114,36 @@ export default async function creator(root, params, ctx) {
 }
 
 /* ==========================================================================
-   Tela de conexão (OAuth simulado)
+   Tela de conexão (OAuth real com o Google)
    ========================================================================== */
+
+/** Mensagens amigáveis para os códigos que `/api/auth/callback` devolve. */
+function oauthErrorMessage(code) {
+  const mapa = {
+    cancelado: 'Você cancelou a autorização no Google.',
+    fluxo_invalido: 'A sessão de login expirou antes de terminar. Tente conectar de novo.',
+    token: 'O Google recusou a troca de tokens. Tente novamente.',
+    sem_refresh_token: 'O Google não devolveu permissão permanente. Revogue o acesso em myaccount.google.com/permissions e tente de novo.',
+    canal_nao_encontrado: 'Essa conta do Google não tem um canal do YouTube associado.',
+    oauth_nao_configurado: 'O login com Google ainda não foi configurado neste servidor.',
+    sessao_nao_configurada: 'O armazenamento de sessão ainda não foi configurado neste servidor.',
+    interno: 'Erro interno ao conectar. Tente novamente em instantes.',
+  };
+  return mapa[code] || 'Não foi possível conectar sua conta do Google.';
+}
+
+/** Erro ao consultar `/api/analytics` que NÃO é "ainda não conectou". */
+function connectionErrorState(err) {
+  const acessoRevogado = err?.code === 'accessRevoked';
+  return emptyState({
+    title: acessoRevogado ? 'O acesso a este canal foi revogado' : 'Não foi possível carregar seus dados',
+    note: acessoRevogado
+      ? 'Você (ou o Google) revogou a permissão. Conecte novamente para continuar.'
+      : (err?.message || 'Tente novamente em instantes.'),
+    iconName: 'alert',
+    action: `<button class="btn btn-primary" data-retry-analytics>Tentar de novo</button>`,
+  });
+}
 
 function renderConnect(root, ctx) {
   root.innerHTML = `
@@ -115,7 +162,7 @@ function renderConnect(root, ctx) {
             Autorização somente de leitura. O TubeMetrics nunca publica, edita ou apaga nada no seu canal.
           </p>
           <button class="btn btn-primary btn-lg" style="margin-top:22px" data-connect>${icon('google')} Continuar com o Google</button>
-          <p class="muted fs12" style="margin-top:14px">Demonstração: nenhuma conta real é acessada.</p>
+          <p class="muted fs12" style="margin-top:14px">Você verá a tela oficial de consentimento do Google antes de qualquer acesso.</p>
         </div>
 
         <div class="card" style="padding:20px">
@@ -143,14 +190,13 @@ function renderConnect(root, ctx) {
       </div>
     </div>`;
 
-  root.querySelector('[data-connect]').addEventListener('click', async (e) => {
+  root.querySelector('[data-connect]').addEventListener('click', (e) => {
+    // Navegação de página inteira — o Google exige que seja o navegador
+    // visitando a URL, não uma chamada em segundo plano.
     const btn = e.currentTarget;
     btn.disabled = true;
-    btn.innerHTML = 'Autenticando…';
-    const res = await connectGoogleAccount();
-    store.set({ connected: true, connectedChannels: res.channels.map((c) => c.id) });
-    toast('Canal conectado com sucesso', 'success');
-    ctx.navigate('#/criador');
+    btn.innerHTML = 'Redirecionando…';
+    startGoogleConnect();
   });
 }
 
@@ -348,16 +394,23 @@ function renderDashboard(host, ch, a, range, ctx) {
     rowHeight: 29,
   });
 
+  // Canal recém-conectado ou com poucas views no período pode não ter dado
+  // suficiente para uma quebra por dispositivo — a API devolve lista vazia
+  // nesse caso, não um erro. `devs[0]` sem essa checagem derrubaria a tela.
   const devs = scale(dims.devices);
-  donutChart(host.querySelector('[data-chart="dev"]'), {
-    data: devs.map((d, i) => ({ label: d.name, value: d.views, color: colors[i % colors.length] })),
-    size: 150,
-    centerTop: pct(devs[0].share * 100, 0),
-    centerSub: devs[0].name.toUpperCase(),
-  });
-  host.querySelector('[data-dev-legend]').innerHTML = devs.map((d, i) => `
-    <div class="item"><span class="dot" style="background:${colors[i % colors.length]}"></span>
-    <span class="nm">${esc(d.name)}</span><span class="vl">${compact(d.views)}</span><span class="pc">${pct(d.share * 100, 0)}</span></div>`).join('');
+  if (devs.length) {
+    donutChart(host.querySelector('[data-chart="dev"]'), {
+      data: devs.map((d, i) => ({ label: d.name, value: d.views, color: colors[i % colors.length] })),
+      size: 150,
+      centerTop: pct(devs[0].share * 100, 0),
+      centerSub: devs[0].name.toUpperCase(),
+    });
+    host.querySelector('[data-dev-legend]').innerHTML = devs.map((d, i) => `
+      <div class="item"><span class="dot" style="background:${colors[i % colors.length]}"></span>
+      <span class="nm">${esc(d.name)}</span><span class="vl">${compact(d.views)}</span><span class="pc">${pct(d.share * 100, 0)}</span></div>`).join('');
+  } else {
+    host.querySelector('[data-chart="dev"]').innerHTML = `<p class="muted fs12" style="padding:20px 0;text-align:center">Sem dado suficiente no período.</p>`;
+  }
 
   /* Meta de crescimento */
   const goalForm = host.querySelector('[data-goal-form]');

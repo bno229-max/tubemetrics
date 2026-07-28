@@ -8,7 +8,7 @@
  * O mapeamento para os endpoints do Google está anotado em cada função.
  */
 
-import { CHANNELS, OWNED_CHANNEL_ID, searchChannels as mockSearch, getChannel as mockGet } from './mock-data.js';
+import { CHANNELS, searchChannels as mockSearch, getChannel as mockGet } from './mock-data.js';
 import { analyze } from './engine.js';
 import { CONFIG } from './config.js';
 
@@ -215,36 +215,45 @@ function stripPrivateFields(channel) {
 /* -------------------------------------------------- dashboard do criador */
 
 /**
- * Ainda simulado: depende de OAuth e da verificação do Google.
+ * GET /api/analytics — dados privados do canal conectado via OAuth real.
  *
- *   GET /youtube/analytics/v2/reports?ids=channel==MINE&metrics=...&dimensions=day
- *
- * Escopos: youtube.readonly, yt-analytics.readonly e yt-analytics-monetary.readonly.
+ * Sem sessão, o backend devolve 401: aqui isso vira `null`, o mesmo sinal de
+ * "ainda não conectou" que a tela já sabia tratar. Qualquer outro erro (500,
+ * token revogado, etc.) sobe para a view decidir como mostrar — diferente do
+ * modo público, aqui NÃO cai para o mock: exibir números fabricados como se
+ * fossem a receita real do usuário seria o pior tipo de mentira que este
+ * produto poderia contar.
  */
-export async function getCreatorReport(channelId) {
-  await latency(520);
-  const channel = mockGet(channelId);
-  if (!channel) return null;
-  return { channel, analysis: analyze(channel, { withPrivate: true }), scope: 'private', source: 'mock' };
-}
-
-export function ownedChannelId() {
-  return OWNED_CHANNEL_ID;
+export async function getCreatorReport() {
+  try {
+    const body = await request('/analytics', {});
+    return {
+      channel: body.channel,
+      analysis: analyze(body.channel, { withPrivate: true }),
+      scope: 'private',
+      source: 'live',
+      fetchedAt: body.fetchedAt,
+    };
+  } catch (err) {
+    if (err.status === 401) return null; // não conectado, ou sessão expirou/foi revogada
+    throw err;
+  }
 }
 
 /**
- * Simula o fluxo OAuth 2.0. Em produção: redirect com PKCE → troca do code no
- * servidor → refresh token cifrado, que nunca chega ao navegador.
+ * Início do OAuth real, com PKCE. Precisa ser uma navegação de página inteira
+ * — não um fetch — porque o Google exige que o próprio navegador do usuário
+ * visite a tela de consentimento.
  */
-export async function connectGoogleAccount() {
-  await latency(900);
-  const channel = mockGet(OWNED_CHANNEL_ID);
-  return {
-    ok: true,
-    account: { name: 'Você', email: 'criador@exemplo.com' },
-    channels: [toChannelCard(channel)],
-    scopes: ['youtube.readonly', 'yt-analytics.readonly', 'yt-analytics-monetary.readonly'],
-  };
+export function startGoogleConnect() {
+  location.href = `${CONFIG.apiBase}/auth/start`;
+}
+
+/** Encerra a sessão no servidor: apaga o refresh token cifrado do Firestore. */
+export async function disconnectGoogleAccount() {
+  try {
+    await fetch(`${CONFIG.apiBase}/auth/logout`, { method: 'POST' });
+  } catch { /* best-effort — o cookie expira sozinho de qualquer forma */ }
 }
 
 /** Estado do backend — a interface usa para mostrar a origem dos dados. */

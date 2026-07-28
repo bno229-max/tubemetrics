@@ -34,40 +34,11 @@
  * dado inventado.
  */
 
-import { cert, getApps, initializeApp } from 'firebase-admin/app';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { FieldValue } from 'firebase-admin/firestore';
+import { firestore, firestoreReady } from './_firebase.js';
 
-const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || '';
-const CLIENT_EMAIL = process.env.FIREBASE_CLIENT_EMAIL || '';
-
-/**
- * A chave privada tem quebras de linha reais. Painéis de variáveis de ambiente
- * guardam tudo numa linha só, escapando com `\n` literal — se não desfizermos
- * isso, o SDK recusa a credencial com um erro de parsing pouco óbvio.
- */
-const PRIVATE_KEY = (process.env.FIREBASE_PRIVATE_KEY || '')
-  .replace(/\\n/g, '\n')
-  .replace(/^["']|["']$/g, '');
-
-export const storageReady = () => !!(PROJECT_ID && CLIENT_EMAIL && PRIVATE_KEY);
-
-let db = null;
-
-/** Reaproveita a app entre invocações quentes da mesma instância. */
-function firestore() {
-  if (!storageReady()) return null;
-  if (db) return db;
-
-  const app = getApps().length
-    ? getApps()[0]
-    : initializeApp({ credential: cert({ projectId: PROJECT_ID, clientEmail: CLIENT_EMAIL, privateKey: PRIVATE_KEY }) });
-
-  db = getFirestore(app);
-  // Campo `undefined` em qualquer documento derruba a escrita inteira; ignorar
-  // é mais seguro que confiar que toda origem preencheu todos os campos.
-  try { db.settings({ ignoreUndefinedProperties: true }); } catch { /* já configurado */ }
-  return db;
-}
+/** Mantido pelo nome antigo — todo o resto do projeto importa `storageReady`. */
+export const storageReady = firestoreReady;
 
 export const isoDay = (d = new Date()) => new Date(d).toISOString().slice(0, 10);
 export const dayBefore = (days) => isoDay(new Date(Date.now() - days * 86400000));
