@@ -19,8 +19,17 @@ const APP_URL = (path) => {
   return `${base}/${path}`;
 };
 
+/**
+ * `res.writeHead(302, { Location })` recebe um segundo objeto de headers que,
+ * a depender de como o runtime encapsula a resposta, pode substituir os
+ * headers já definidos via `res.setHeader()` em vez de somar a eles — é
+ * exatamente onde o cookie da sessão poderia se perder mesmo com o resto do
+ * fluxo dando certo. `setHeader` + `res.end()` evita essa ambiguidade: o
+ * `Location` entra no MESMO mecanismo de acúmulo que já guarda os `Set-Cookie`.
+ */
 function redirectToApp(res, hashQuery) {
-  res.writeHead(302, { Location: APP_URL(`#/criador?${hashQuery}`) });
+  res.statusCode = 302;
+  res.setHeader('Location', APP_URL(`#/criador?${hashQuery}`));
   res.end();
 }
 

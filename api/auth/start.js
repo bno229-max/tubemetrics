@@ -53,6 +53,10 @@ export default function handler(req, res) {
   url.searchParams.set('code_challenge_method', 'S256');
   url.searchParams.set('state', state);
 
-  res.writeHead(302, { Location: url.toString() });
+  // Mesmo padrão de callback.js: Location via setHeader, não via segundo
+  // argumento de writeHead, para ficar no mesmo mecanismo de acúmulo dos
+  // cookies de PKCE já definidos acima.
+  res.statusCode = 302;
+  res.setHeader('Location', url.toString());
   res.end();
 }
