@@ -74,6 +74,7 @@ tubemetrics/
 │
 ├── api/                        # backend: Serverless Functions da Vercel
 │   ├── health.js               # GET /api/health  — diagnóstico, não gasta cota
+│   ├── top.js                  # GET /api/top     — Top 20 por inscritos
 │   ├── search.js               # GET /api/search  — busca canais (101 unidades)
 │   ├── channel.js              # GET /api/channel — relatório (~10 unidades)
 │   ├── _youtube.js             # cliente da Data API v3 + normalização
@@ -101,6 +102,8 @@ tubemetrics/
                 ├── searchbox.js     # busca com sugestões, reaproveitada
                 ├── discover.js      # catálogo e busca dentro do painel
                 ├── public-report.js # relatório público (4 abas)
+                ├── top.js           # Top 20 canais por inscritos
+                ├── signup.js        # cadastro exigido antes da análise
                 ├── creator.js       # dashboard do criador (OAuth)
                 ├── compare.js       # comparação de canais
                 └── pricing.js       # planos e matriz de recursos
@@ -357,19 +360,27 @@ equivalente a ~5,5% do longo — é a diferença que mais engana quem estima "no
 Tudo declarado em [`assets/js/plans.js`](assets/js/plans.js) e consultado por `can(plano, recurso)`
 e `limitOf(plano, limite)`. Nenhuma tela decide sozinha o que mostrar.
 
-| | Grátis | Pro | Creator |
-| --- | --- | --- | --- |
-| Preço | R$ 0 | R$ 49/mês | R$ 149/mês |
-| Análise pública + nota do canal | ✓ | ✓ | ✓ |
-| Buscas por dia | 3 | 200 | ilimitado |
-| Histórico | 90 dias | 2 anos | 3 anos |
-| Melhor horário / frequência ideal | — | ✓ | ✓ |
-| Comparação de canais | — | ilimitada | ilimitada |
-| Dashboard do Criador + receita por vídeo | — | ✓ | ✓ |
-| Alertas de meta | — | ✓ | ✓ |
-| Canais conectados | 0 | 1 | 10 |
-| Assentos de equipe | 1 | 1 | 8 |
-| Exportação PDF/Excel · API própria | — | — | ✓ |
+| | Grátis | Starter | Pro | Creator |
+| --- | --- | --- | --- | --- |
+| Preço/mês | R$ 0 | R$ 49,90 | R$ 179,90 | R$ 249,90 |
+| Análises de canal por mês | 3 | 80 | 180 | ilimitado |
+| Análise pública + nota do canal | ✓ | ✓ | ✓ | ✓ |
+| Canais favoritos | — | 5 | 15 | ilimitado |
+| Canais em comparação | — | 2 | 5 | 10 |
+| Top 20 por inscritos | — | ✓ | ✓ | ✓ |
+| Melhor horário / frequência ideal | — | ✓ | ✓ | ✓ |
+| Dashboard do Criador + receita por vídeo | — | ✓ | ✓ | ✓ |
+| Canais conectados | 0 | 1 | 5 | 15 |
+| Assentos de equipe | 1 | 1 | 5 | 8 |
+| Exportação PDF/Excel | — | — | ✓ | ✓ |
+
+A cota é **mensal**, não diária: analisar canal é decisão de planejamento e acontece em ondas. Um teto
+diário puniria justamente a semana em que o assinante mais precisa da ferramenta. Canal já analisado
+no mês reabre pelo histórico sem consumir cota de novo.
+
+O cadastro (nome, telefone, e-mail) é exigido antes da primeira análise. **É captura de lead no
+navegador, não autenticação**: os dados ficam em `localStorage` e qualquer pessoa contorna limpando o
+storage. Virar conta de verdade exige backend com sessão e a mesma checagem de plano no servidor.
 
 > **Flag de cliente é experiência, não segurança.** Nesta demonstração o bloqueio acontece no
 > navegador. Em produção a mesma tabela vive no servidor e a rota recusa o dado antes de montar a
