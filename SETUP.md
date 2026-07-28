@@ -185,6 +185,73 @@ Resolve-se de duas formas, ambas etapas futuras: o **job de snapshot diário**
 
 ---
 
+## Opcional — ligar os rankings de crescimento
+
+Os rankings de **alta por país** já funcionam sem nada disso. O que depende desta
+etapa são os rankings de **crescimento** (semana, mês, ano).
+
+### Por que precisa de banco
+
+A Data API devolve só o retrato de agora: inscritos e views acumulados, sem
+nenhuma série temporal. Não existe endpoint de "quanto o canal cresceu na
+semana". A única forma é guardar o retrato todo dia e subtrair depois.
+
+### Passo A — criar o armazenamento
+
+1. Painel da Vercel → aba **Storage** → **Create Database** → **Upstash Redis**
+2. Escolha a região mais próxima (`sa-east-1` para o Brasil)
+3. **Connect** ao projeto `tubemetrics`
+
+A integração injeta `KV_REST_API_URL` e `KV_REST_API_TOKEN` sozinha. Não precisa
+copiar nada.
+
+### Passo B — proteger o cron
+
+Em **Settings** → **Environment Variables**, adicione:
+
+| Name | Value |
+|---|---|
+| `CRON_SECRET` | uma frase longa e aleatória |
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+```
+
+Sem esse segredo, qualquer pessoa dispararia a coleta e queimaria sua cota.
+
+### Passo C — publicar
+
+Faça um **Redeploy**. O `vercel.json` já agenda a coleta para as 6h UTC (3h no
+horário de Brasília), quando a cota do dia acabou de zerar.
+
+### Passo D — conferir
+
+```
+https://tubemetrics.vercel.app/api/growth?period=7
+```
+
+- `"reason": "storageNotConfigured"` → passo A não concluído
+- `"reason": "noChannels"` → normal; analise alguns canais para povoar a lista
+- `"reason": "notEnoughHistory"` → **normal e esperado**, veja abaixo
+- `"ready": true` → funcionando
+
+### O relógio que não dá para acelerar
+
+| Ranking | Fica pronto em |
+|---|---|
+| Semana | 7 dias de coleta |
+| Mês | 30 dias |
+| Ano | 365 dias |
+
+Não há atalho: o histórico não existe retroativamente. Enquanto isso, a tela
+explica ao usuário que a coleta está em andamento, em vez de mostrar um ranking
+vazio sem contexto.
+
+Os canais entram na coleta sozinhos — os da lista do Top 20 e qualquer canal que
+alguém analise. Custo: 1 unidade de cota por lote de 50 canais, por dia.
+
+---
+
 ## Cota: o limite que realmente importa
 
 A YouTube Data API dá **10.000 unidades por dia**, reiniciando à meia-noite do

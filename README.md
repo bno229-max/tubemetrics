@@ -67,11 +67,15 @@ tubemetrics/
 ├── firebase.json               # espelho opcional no Firebase Hosting
 │
 ├── api/                        # backend: Serverless Functions da Vercel
-│   ├── health.js               # GET /api/health  — diagnóstico, não gasta cota
-│   ├── top.js                  # GET /api/top     — Top 20 por inscritos
-│   ├── search.js               # GET /api/search  — busca canais (101 unidades)
-│   ├── channel.js              # GET /api/channel — relatório (~10 unidades)
+│   ├── health.js               # GET /api/health   — diagnóstico, não gasta cota
+│   ├── top.js                  # GET /api/top      — Top 20 por inscritos
+│   ├── search.js               # GET /api/search   — busca canais (101 unidades)
+│   ├── channel.js              # GET /api/channel  — relatório (~10 unidades)
+│   ├── trending.js             # GET /api/trending — alta por país (1 unidade)
+│   ├── growth.js               # GET /api/growth   — crescimento em 7/30/365 dias
+│   ├── cron-snapshot.js        # coleta diária, agendada pelo Vercel Cron
 │   ├── _youtube.js             # cliente da Data API v3 + normalização
+│   ├── _store.js               # histórico diário (Upstash Redis REST)
 │   └── _http.js                # respostas JSON e política de cache de borda
 │
 └── web/                        # front-end estático
@@ -97,6 +101,7 @@ tubemetrics/
                 ├── discover.js      # catálogo e busca dentro do painel
                 ├── public-report.js # relatório público (4 abas)
                 ├── top.js           # Top 20 canais por inscritos
+                ├── rankings.js      # rankings por país e período
                 ├── signup.js        # cadastro exigido antes da análise
                 ├── creator.js       # dashboard do criador (OAuth)
                 ├── compare.js       # comparação de canais
