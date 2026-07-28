@@ -6,3 +6,7 @@ node_modules/
 .env
 .env.*
 .DS_Store
+
+# credenciais de conta de servico
+*serviceaccount*.json
+*-firebase-adminsdk-*.json

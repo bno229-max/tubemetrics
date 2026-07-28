@@ -6,11 +6,15 @@
  */
 
 import { json, fail, NO_CACHE } from './_http.js';
+import { storageReady } from './_store.js';
 
 export default function handler(req, res) {
   if (req.method !== 'GET') return fail(res, 405, 'methodNotAllowed', 'Use GET.');
 
   const hasKey = !!process.env.YOUTUBE_API_KEY;
+  // Firestore é opcional: sem ele o produto funciona, só não tem os rankings
+  // de crescimento. Por isso não entra no `ok` geral.
+  const firestore = storageReady();
 
   json(
     res,
@@ -19,9 +23,13 @@ export default function handler(req, res) {
       ok: hasKey,
       mode: 'public',
       apiKeyConfigured: hasKey,
-      message: hasKey
-        ? 'Backend pronto. Buscas e relatórios usarão dados reais da YouTube Data API.'
-        : 'Falta configurar YOUTUBE_API_KEY nas variáveis de ambiente da Vercel.',
+      firestoreConfigured: firestore,
+      cronSecretConfigured: !!process.env.CRON_SECRET,
+      message: !hasKey
+        ? 'Falta configurar YOUTUBE_API_KEY nas variáveis de ambiente da Vercel.'
+        : firestore
+          ? 'Backend pronto, com histórico de crescimento ativo.'
+          : 'Backend pronto. Rankings de crescimento aguardam a configuração do Firestore.',
       region: process.env.VERCEL_REGION || 'local',
       deployedAt: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) || null,
     },

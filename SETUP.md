@@ -185,10 +185,10 @@ Resolve-se de duas formas, ambas etapas futuras: o **job de snapshot diário**
 
 ---
 
-## Opcional — ligar os rankings de crescimento
+## Opcional — ligar os rankings de crescimento (Firestore)
 
-Os rankings de **alta por país** já funcionam sem nada disso. O que depende desta
-etapa são os rankings de **crescimento** (semana, mês, ano).
+Os rankings de **alta por país** já funcionam sem nada disso. O que depende
+desta etapa são os rankings de **crescimento** (semana, mês, ano).
 
 ### Por que precisa de banco
 
@@ -196,44 +196,76 @@ A Data API devolve só o retrato de agora: inscritos e views acumulados, sem
 nenhuma série temporal. Não existe endpoint de "quanto o canal cresceu na
 semana". A única forma é guardar o retrato todo dia e subtrair depois.
 
-### Passo A — criar o armazenamento
+> 💡 **O Firestore não exige plano Blaze.** O Blaze é cobrado pelas *Cloud
+> Functions*; aqui as funções rodam na Vercel e o Firestore entra só como banco.
+> No plano **Spark (gratuito)** você tem 50 mil leituras e 20 mil escritas por
+> dia — este motor usa poucas centenas.
 
-1. Painel da Vercel → aba **Storage** → **Create Database** → **Upstash Redis**
-2. Escolha a região mais próxima (`sa-east-1` para o Brasil)
-3. **Connect** ao projeto `tubemetrics`
+### Passo A — criar o banco
 
-A integração injeta `KV_REST_API_URL` e `KV_REST_API_TOKEN` sozinha. Não precisa
-copiar nada.
+1. Abra: **https://console.firebase.google.com/project/tubemetrics-saas/firestore**
+2. **Criar banco de dados** → modo **produção** → região **southamerica-east1 (São Paulo)**
 
-### Passo B — proteger o cron
+Se aparecer erro de API desabilitada, ative em
+**https://console.cloud.google.com/apis/library/firestore.googleapis.com** e
+espere um minuto.
 
-Em **Settings** → **Environment Variables**, adicione:
+### Passo B — criar a conta de serviço
 
-| Name | Value |
+1. Abra: **https://console.firebase.google.com/project/tubemetrics-saas/settings/serviceaccounts/adminsdk**
+2. **Gerar nova chave privada** → confirme
+3. Baixa um arquivo `.json`. Abra-o: você vai precisar de três campos.
+
+⚠️ Esse arquivo dá acesso total ao seu banco. **Não** o coloque no repositório —
+o `.gitignore` já bloqueia `.json` de credencial, mas vale conferir.
+
+### Passo C — configurar na Vercel
+
+**Settings** → **Environment Variables**, marcando Production, Preview e Development:
+
+| Name | De onde vem no JSON |
 |---|---|
-| `CRON_SECRET` | uma frase longa e aleatória |
+| `FIREBASE_PROJECT_ID` | campo `project_id` |
+| `FIREBASE_CLIENT_EMAIL` | campo `client_email` |
+| `FIREBASE_PRIVATE_KEY` | campo `private_key` — **cole o valor inteiro**, incluindo `-----BEGIN PRIVATE KEY-----` e os `
+` |
+| `CRON_SECRET` | uma frase longa e aleatória, sua |
+
+Para gerar o `CRON_SECRET`:
 
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
 ```
 
-Sem esse segredo, qualquer pessoa dispararia a coleta e queimaria sua cota.
+> A chave privada tem quebras de linha. O painel guarda tudo numa linha só, com
+> `
+` literal — o código desfaz isso sozinho. Cole exatamente como está no JSON.
 
-### Passo C — publicar
+### Passo D — publicar as regras e o código
 
-Faça um **Redeploy**. O `vercel.json` já agenda a coleta para as 6h UTC (3h no
-horário de Brasília), quando a cota do dia acabou de zerar.
-
-### Passo D — conferir
-
-```
-https://tubemetrics.vercel.app/api/growth?period=7
+```bash
+firebase deploy --only firestore:rules
 ```
 
-- `"reason": "storageNotConfigured"` → passo A não concluído
-- `"reason": "noChannels"` → normal; analise alguns canais para povoar a lista
-- `"reason": "notEnoughHistory"` → **normal e esperado**, veja abaixo
-- `"ready": true` → funcionando
+Depois, um **Redeploy** na Vercel (variável nova só vale em deploy novo).
+
+As regras negam todo acesso do navegador de propósito: quem lê e escreve é a
+função da Vercel, pelo Admin SDK, que passa por cima das regras.
+
+### Passo E — conferir
+
+```
+https://tubemetrics.vercel.app/api/health
+```
+
+Deve mostrar `"firestoreConfigured": true`. Para forçar a primeira coleta sem
+esperar a madrugada:
+
+```bash
+curl -H "Authorization: Bearer SEU_CRON_SECRET" https://tubemetrics.vercel.app/api/cron-snapshot
+```
+
+Confira os documentos aparecendo em **Firestore → coleção `snapshots`**.
 
 ### O relógio que não dá para acelerar
 
@@ -244,8 +276,8 @@ https://tubemetrics.vercel.app/api/growth?period=7
 | Ano | 365 dias |
 
 Não há atalho: o histórico não existe retroativamente. Enquanto isso, a tela
-explica ao usuário que a coleta está em andamento, em vez de mostrar um ranking
-vazio sem contexto.
+explica que a coleta está em andamento, em vez de mostrar um ranking vazio sem
+contexto.
 
 Os canais entram na coleta sozinhos — os da lista do Top 20 e qualquer canal que
 alguém analise. Custo: 1 unidade de cota por lote de 50 canais, por dia.

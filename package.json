@@ -9,5 +9,8 @@
   },
   "scripts": {
     "dev": "python -m http.server 8735 --directory web"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.2.0"
   }
 }

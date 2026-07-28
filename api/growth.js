@@ -30,7 +30,7 @@ export default async function handler(req, res) {
 
   if (!storageReady()) {
     return json(res, 200, vazio(period, 'storageNotConfigured',
-      'O histórico ainda não está ligado. Configure o armazenamento para começar a coletar.'), NO_CACHE);
+      'O histórico ainda não está ligado. Configure o Firestore para começar a coletar.'), NO_CACHE);
   }
 
   try {

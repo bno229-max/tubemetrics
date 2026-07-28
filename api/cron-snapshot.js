@@ -14,7 +14,7 @@
  */
 
 import { fetchChannelStats, YouTubeError } from './_youtube.js';
-import { trackedChannels, saveSnapshots, storageReady, isoDay } from './_store.js';
+import { trackedChannels, saveSnapshots, trackChannel, storageReady, isoDay } from './_store.js';
 import { json, fail, handleYouTubeError, NO_CACHE } from './_http.js';
 
 export default async function handler(req, res) {
@@ -34,7 +34,7 @@ export default async function handler(req, res) {
       res,
       503,
       'storageNotConfigured',
-      'Armazenamento não configurado. Crie um Upstash Redis em Storage, no painel da Vercel.'
+      'Firestore não configurado. Defina FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL e FIREBASE_PRIVATE_KEY.'
     );
   }
 
@@ -46,6 +46,12 @@ export default async function handler(req, res) {
 
     const stats = await fetchChannelStats(ids, apiKey);
     const saved = await saveSnapshots(stats);
+
+    // Mantém nome e handle atualizados em `tracked`: canal muda de nome, e o
+    // ranking não pode continuar mostrando o antigo por meses.
+    await Promise.allSettled(
+      stats.map((s) => trackChannel(s.channelId, { title: s.title, handle: s.handle, thumbnail: s.thumbnail }))
+    );
 
     return json(
       res,
