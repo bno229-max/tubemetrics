@@ -38,6 +38,7 @@ const SHELL = [
   './assets/js/views/discover.js',
   './assets/js/views/landing.js',
   './assets/js/views/pricing.js',
+  './assets/js/views/rankings.js',
   './assets/js/views/public-report.js',
   './assets/js/views/searchbox.js',
 ];

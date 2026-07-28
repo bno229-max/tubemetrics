@@ -21,6 +21,7 @@ export const FEATURES = {
   ideal_frequency:    { label: 'Frequência ideal de postagem',          tiers: ['starter', 'pro', 'creator'] },
   compare_channels:   { label: 'Comparação de canais',                  tiers: ['starter', 'pro', 'creator'] },
   top_channels:       { label: 'Ranking Top 20 por inscritos',          tiers: ['starter', 'pro', 'creator'] },
+  rankings:           { label: 'Rankings globais e por país',            tiers: ['starter', 'pro', 'creator'] },
   growth_alerts:      { label: 'Alertas de meta de crescimento',        tiers: ['starter', 'pro', 'creator'] },
   creator_dashboard:  { label: 'Dashboard do Criador (dados privados)', tiers: ['starter', 'pro', 'creator'] },
   revenue_per_video:  { label: 'Receita detalhada por vídeo',           tiers: ['starter', 'pro', 'creator'] },

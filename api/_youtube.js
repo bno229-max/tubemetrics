@@ -65,6 +65,15 @@ function accentFor(id) {
 
 const num = (v) => (v == null ? 0 : Number(v) || 0);
 
+/** Idioma de relevância por país, para a busca não misturar mercados. */
+const LANG_BY_REGION = {
+  BR: 'pt', PT: 'pt', US: 'en', GB: 'en', CA: 'en', AU: 'en', IE: 'en', IN: 'en',
+  ES: 'es', MX: 'es', AR: 'es', CO: 'es', CL: 'es', PE: 'es',
+  FR: 'fr', DE: 'de', IT: 'it', NL: 'nl', PL: 'pl', RU: 'ru',
+  JP: 'ja', KR: 'ko', CN: 'zh', TW: 'zh', ID: 'id', PH: 'en', TH: 'th',
+  TR: 'tr', SA: 'ar', EG: 'ar', NG: 'en', ZA: 'en',
+};
+
 /* --------------------------------------------------------------- catálogo */
 
 export async function fetchCategories(apiKey, regionCode = 'BR') {
@@ -89,7 +98,11 @@ export async function fetchCategories(apiKey, regionCode = 'BR') {
  * acima do canal verdadeiro. Numa ferramenta de métricas isso é inaceitável —
  * quem procura um canal quer o canal, não a imitação.
  */
-export async function searchChannels(query, apiKey, { maxResults = 6, candidates = 15 } = {}) {
+export async function searchChannels(query, apiKey, { maxResults = 6, candidates = 15, regionCode = 'BR' } = {}) {
+  // `relevanceLanguage` acompanha o país: buscar "news" com regionCode=US e
+  // idioma pt devolveria um recorte incoerente.
+  const idioma = LANG_BY_REGION[regionCode] || 'en';
+
   const found = await call(
     'search',
     {
@@ -97,8 +110,8 @@ export async function searchChannels(query, apiKey, { maxResults = 6, candidates
       type: 'channel',
       maxResults: String(candidates),
       q: query,
-      regionCode: 'BR',
-      relevanceLanguage: 'pt',
+      regionCode,
+      relevanceLanguage: idioma,
     },
     apiKey
   );
@@ -211,6 +224,93 @@ export async function fetchChannelsByHandles(handles, apiKey) {
     if (!item || seen.has(item.id)) continue;
     seen.add(item.id);
     out.push(toChannelCard(item));
+  }
+  return out;
+}
+
+/* ------------------------------------------------- vídeos em alta por país */
+
+/**
+ * Vídeos mais populares AGORA em um país (`chart=mostPopular`).
+ *
+ * Custa 1 unidade para até 50 vídeos — é o endpoint com melhor relação
+ * custo/valor de toda a Data API.
+ *
+ * ⚠️ Limite importante: isto é a lista de ALTA do momento, não "os mais vistos
+ * de todos os tempos" nem "da semana". A API não expõe ranking histórico; para
+ * janelas de tempo é preciso histórico próprio (ver `_store.js`).
+ */
+export async function fetchTrending(regionCode, apiKey, { maxResults = 50, categories = null } = {}) {
+  const body = await call(
+    'videos',
+    {
+      part: 'snippet,statistics,contentDetails',
+      chart: 'mostPopular',
+      regionCode,
+      maxResults: String(Math.min(50, maxResults)),
+    },
+    apiKey
+  );
+
+  const catMap = categories || {};
+  const videos = (body.items || []).map((v, i) => {
+    const durationSec = parseDuration(v.contentDetails?.duration);
+    return {
+      rank: i + 1,
+      id: v.id,
+      title: v.snippet?.title || 'Sem título',
+      url: `https://www.youtube.com/watch?v=${v.id}`,
+      publishedAt: v.snippet?.publishedAt,
+      channelId: v.snippet?.channelId,
+      channelTitle: v.snippet?.channelTitle || '',
+      channelUrl: `https://www.youtube.com/channel/${v.snippet?.channelId}`,
+      thumbnail: v.snippet?.thumbnails?.medium?.url || null,
+      topic: catMap[v.snippet?.categoryId] || 'Outros',
+      durationSec,
+      isShort: durationSec > 0 && durationSec <= 60,
+      views: num(v.statistics?.viewCount),
+      likes: num(v.statistics?.likeCount),
+      comments: num(v.statistics?.commentCount),
+    };
+  });
+
+  // Agrupa por canal: quem tem mais vídeos e mais views na lista de alta.
+  const porCanal = videos.reduce((acc, v) => {
+    if (!v.channelId) return acc;
+    const c = (acc[v.channelId] ||= {
+      id: v.channelId,
+      title: v.channelTitle,
+      url: v.channelUrl,
+      videos: 0,
+      views: 0,
+      thumbnail: null,
+    });
+    c.videos += 1;
+    c.views += v.views;
+    return acc;
+  }, {});
+
+  const channels = Object.values(porCanal).sort((a, b) => b.views - a.views);
+  return { videos, channels };
+}
+
+/** Estatísticas atuais de vários canais, em lotes de 50 (1 unidade por lote). */
+export async function fetchChannelStats(channelIds, apiKey) {
+  const out = [];
+  for (let i = 0; i < channelIds.length; i += 50) {
+    const lote = channelIds.slice(i, i + 50);
+    const body = await call('channels', { part: 'snippet,statistics', id: lote.join(',') }, apiKey);
+    for (const c of body.items || []) {
+      out.push({
+        channelId: c.id,
+        title: c.snippet?.title || '',
+        handle: c.snippet?.customUrl ? `@${c.snippet.customUrl.replace(/^@/, '')}` : '',
+        thumbnail: c.snippet?.thumbnails?.default?.url || null,
+        subscribers: num(c.statistics?.subscriberCount),
+        views: num(c.statistics?.viewCount),
+        videos: num(c.statistics?.videoCount),
+      });
+    }
   }
   return out;
 }

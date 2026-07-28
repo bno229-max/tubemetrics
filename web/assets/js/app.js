@@ -21,6 +21,7 @@ const ROUTES = [
   { path: /^#\/descobrir\/?$/, load: () => import('./views/discover.js'), nav: 'descobrir', title: 'Descobrir canais' },
   { path: /^#\/canal\/([^/]+)(?:\/([^/]+))?\/?$/, load: () => import('./views/public-report.js'), nav: 'descobrir', title: 'Relatório do canal', params: (m) => ({ id: m[1], tab: m[2] }) },
   { path: /^#\/top\/?$/, load: () => import('./views/top.js'), nav: 'top', title: 'Top 20 canais brasileiros' },
+  { path: /^#\/rankings\/?$/, load: () => import('./views/rankings.js'), nav: 'rankings', title: 'Rankings' },
   { path: /^#\/comparar\/?$/, load: () => import('./views/compare.js'), nav: 'comparar', title: 'Comparar canais' },
   { path: /^#\/criador\/?$/, load: () => import('./views/creator.js'), nav: 'criador', title: 'Dashboard do Criador' },
   { path: /^#\/planos\/?$/, load: () => import('./views/pricing.js'), nav: 'planos', title: 'Planos' },
@@ -32,6 +33,7 @@ const NAV = [
     items: [
       { id: 'descobrir', label: 'Descobrir canais', icon: 'search', href: '#/descobrir' },
       { id: 'top', label: 'Top 20 canais', icon: 'trophy', href: '#/top', feature: 'top_channels', flag: true },
+      { id: 'rankings', label: 'Rankings', icon: 'chart', href: '#/rankings', feature: 'rankings' },
       { id: 'comparar', label: 'Comparar canais', icon: 'compare', href: '#/comparar', feature: 'compare_channels' },
     ],
   },

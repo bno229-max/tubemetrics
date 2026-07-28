@@ -9,6 +9,7 @@
  */
 
 import { searchChannels, YouTubeError } from './_youtube.js';
+import { REGIOES } from './trending.js';
 import { json, fail, guard, handleYouTubeError, CACHE_SEARCH } from './_http.js';
 
 export default async function handler(req, res) {
@@ -21,9 +22,13 @@ export default async function handler(req, res) {
   if (q.length < 2) return fail(res, 400, 'badQuery', 'Informe ao menos 2 caracteres.');
   if (q.length > 100) return fail(res, 400, 'badQuery', 'Termo de busca longo demais.');
 
+  // Filtro global de país: restringe a busca ao mercado escolhido.
+  const region = String(req.query.region || 'BR').toUpperCase();
+  if (!REGIOES[region]) return fail(res, 400, 'badRegion', `País não suportado: ${region}.`);
+
   try {
-    const channels = await searchChannels(q, apiKey);
-    return json(res, 200, { channels, query: q }, CACHE_SEARCH);
+    const channels = await searchChannels(q, apiKey, { regionCode: region });
+    return json(res, 200, { channels, query: q, region }, CACHE_SEARCH);
   } catch (err) {
     if (err instanceof YouTubeError) return handleYouTubeError(res, err);
     console.error('Erro inesperado na busca:', err);

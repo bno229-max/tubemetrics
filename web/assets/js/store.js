@@ -17,6 +17,8 @@ const DEFAULTS = {
   theme: 'light',
   /** Barra lateral recolhida (só ícones), preferência do usuário. */
   navCollapsed: false,
+  /** Filtro global de país (ISO 3166-1 alpha-2) usado em busca e rankings. */
+  region: 'BR',
   connected: false,
   connectedChannels: [],
   /** Cadastro do usuário (nome, telefone, e-mail). `null` = ainda não fez. */

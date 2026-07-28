@@ -6,6 +6,7 @@
  */
 
 import { fetchChannelReport, YouTubeError } from './_youtube.js';
+import { trackChannel } from './_store.js';
 import { json, fail, guard, handleYouTubeError, CACHE_CHANNEL } from './_http.js';
 
 /**
@@ -29,6 +30,11 @@ export default async function handler(req, res) {
     if (!report.channel.videos.length) {
       return fail(res, 404, 'noVideos', 'Este canal não tem vídeos públicos para analisar.');
     }
+
+    // Canal analisado entra na coleta diaria: o historico cresce com o uso,
+    // sem ninguem precisar cadastrar nada. Falha aqui nao pode derrubar o
+    // relatorio, que e o que o usuario pediu.
+    trackChannel(id).catch(() => {});
 
     return json(
       res,

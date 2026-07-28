@@ -82,14 +82,36 @@ async function withFallback(liveFn, mockFn) {
  * GET /api/search?q=  →  no backend: search.list + channels.list.
  * Custo real: 101 unidades por termo novo; o backend cacheia por 24 h.
  */
-export async function searchChannels(query) {
+export async function searchChannels(query, region = 'BR') {
   return withFallback(
-    async () => (await request('/search', { q: query })).channels,
+    async () => (await request('/search', { q: query, region })).channels,
     async () => {
       await latency(260);
       return mockSearch(query).map(toChannelCard);
     }
   );
+}
+
+/**
+ * GET /api/trending?region= — vídeos e canais em alta no país.
+ * Sem equivalente no mock: é dado que só existe ao vivo.
+ */
+export async function trending(region = 'BR') {
+  const body = await request('/trending', { region });
+  setMode('live');
+  return body;
+}
+
+/** GET /api/growth?period=7|30|365 — ranking de crescimento por histórico. */
+export async function growth(period = 7, limit = 10) {
+  try {
+    const body = await request('/growth', { period, limit });
+    return body;
+  } catch (err) {
+    // A rota devolve 200 com `ready:false` quando falta histórico; um erro aqui
+    // é falha de rede ou de configuração, e a tela precisa saber a diferença.
+    return { ready: false, reason: 'unavailable', message: err.message, porViews: [], porInscritos: [], period };
+  }
 }
 
 /** Catálogo simulado — usado apenas quando o backend não responde. */
