@@ -71,46 +71,87 @@ const num = (v) => (v == null ? 0 : Number(v) || 0);
 
 /* --------------------------------------------------------- série diária -- */
 
-const DAILY_METRICS = [
-  'views', 'estimatedMinutesWatched', 'averageViewDuration',
-  'subscribersGained', 'subscribersLost', 'estimatedRevenue',
-  'impressions', 'impressionClickThroughRate',
+/**
+ * `impressions` e `impressionClickThroughRate` NÃO existem como identificador
+ * de métrica na Analytics API v2 padrão (confirmado em produção: a API rejeita
+ * com "Unknown identifier"). O CTR de miniatura que o YouTube Studio mostra
+ * não é exposto por este endpoint para contas comuns — removido em vez de
+ * tentar de novo, já que o nome do identificador está errado, não é uma
+ * questão de combinação de métricas.
+ */
+const DAILY_METRICS_CORE = [
+  'views', 'estimatedMinutesWatched', 'averageViewDuration', 'subscribersGained', 'subscribersLost',
 ].join(',');
 
 export async function fetchDailySeries(accessToken, { startDate, endDate }) {
-  const report = await query(accessToken, { startDate, endDate, dimensions: 'day', metrics: DAILY_METRICS, sort: 'day' });
-  return rowsToObjects(report).map((r) => ({
-    date: r.day,
-    views: num(r.views),
-    estimatedMinutesWatched: num(r.estimatedMinutesWatched),
-    averageViewDuration: Math.round(num(r.averageViewDuration)),
-    subscribersGained: num(r.subscribersGained),
-    subscribersLost: num(r.subscribersLost),
-    estimatedRevenue: Math.round(num(r.estimatedRevenue) * 100) / 100,
-    impressions: num(r.impressions),
-    impressionClickThroughRate: num(r.impressionClickThroughRate),
-  }));
+  // `estimatedRevenue` só existe para canais no Programa de Parcerias do
+  // YouTube — pedir a métrica para um canal não monetizado é rejeitado pela
+  // API em vez de devolver zero. Tentamos com receita e, se falhar, refazemos
+  // sem ela: assim o dashboard funciona tanto para quem monetiza quanto para
+  // quem não monetiza, sem o usuário precisar descobrir isso na marra.
+  let monetized = true;
+  let report;
+  try {
+    report = await query(accessToken, {
+      startDate, endDate, dimensions: 'day', metrics: `${DAILY_METRICS_CORE},estimatedRevenue`, sort: 'day',
+    });
+  } catch (err) {
+    if (!(err instanceof OAuthError)) throw err;
+    monetized = false;
+    report = await query(accessToken, { startDate, endDate, dimensions: 'day', metrics: DAILY_METRICS_CORE, sort: 'day' });
+  }
+
+  return {
+    monetized,
+    rows: rowsToObjects(report).map((r) => ({
+      date: r.day,
+      views: num(r.views),
+      estimatedMinutesWatched: num(r.estimatedMinutesWatched),
+      averageViewDuration: Math.round(num(r.averageViewDuration)),
+      subscribersGained: num(r.subscribersGained),
+      subscribersLost: num(r.subscribersLost),
+      estimatedRevenue: monetized ? Math.round(num(r.estimatedRevenue) * 100) / 100 : 0,
+      // Ver comentário acima: a API não expõe isso para contas comuns.
+      impressions: 0,
+      impressionClickThroughRate: 0,
+    })),
+  };
 }
 
 /* --------------------------------------------------------- por vídeo ----- */
 
-const VIDEO_METRICS = [
-  'views', 'subscribersGained', 'estimatedRevenue',
-  'averageViewDuration', 'averageViewPercentage', 'impressionClickThroughRate',
-].join(',');
+// `impressionClickThroughRate` removida pelo mesmo motivo do bloco acima —
+// identificador não reconhecido pela API para contas comuns.
+const VIDEO_METRICS_CORE = ['views', 'subscribersGained', 'averageViewDuration', 'averageViewPercentage'].join(',');
 
-/** Métricas reais por vídeo — o que substitui os `null` do modo público. */
+/**
+ * Métricas reais por vídeo — o que substitui os `null` do modo público.
+ * `ctr` fica sempre `null`: sem a métrica de impressões, não há como calculá-lo
+ * (ver limitação documentada acima). O motor de análise já sabe lidar com essa
+ * ausência, do mesmo jeito que faz no modo público.
+ */
 export async function fetchVideoStats(accessToken, { startDate, endDate }) {
-  const report = await query(accessToken, {
-    startDate, endDate, dimensions: 'video', metrics: VIDEO_METRICS, maxResults: '200', sort: '-views',
-  });
+  let monetized = true;
+  let report;
+  try {
+    report = await query(accessToken, {
+      startDate, endDate, dimensions: 'video', metrics: `${VIDEO_METRICS_CORE},estimatedRevenue`, maxResults: '200', sort: '-views',
+    });
+  } catch (err) {
+    if (!(err instanceof OAuthError)) throw err;
+    monetized = false;
+    report = await query(accessToken, {
+      startDate, endDate, dimensions: 'video', metrics: VIDEO_METRICS_CORE, maxResults: '200', sort: '-views',
+    });
+  }
+
   return rowsToObjects(report).reduce((acc, r) => {
     acc[r.video] = {
       subsGained: num(r.subscribersGained),
       avgViewPct: Math.round(num(r.averageViewPercentage) * 10) / 10,
       avgViewDurationSec: Math.round(num(r.averageViewDuration)),
-      ctr: Math.round(num(r.impressionClickThroughRate) * 10) / 10,
-      revenue: Math.round(num(r.estimatedRevenue) * 100) / 100,
+      ctr: null,
+      revenue: monetized ? Math.round(num(r.estimatedRevenue) * 100) / 100 : 0,
     };
     return acc;
   }, {});

@@ -73,9 +73,7 @@ export default async function handler(req, res) {
         subsGained: real.subsGained,
         avgViewPct: real.avgViewPct,
         avgViewDurationSec: real.avgViewDurationSec,
-        // Shorts não têm miniatura clicável — CTR não existe para eles, e a
-        // API devolve 0 em vez de ausência; forçamos null para não mentir.
-        ctr: v.isShort ? null : real.ctr,
+        ctr: real.ctr, // sempre null por ora — ver limitação em _analytics.js
         revenue: real.revenue,
       };
     });
@@ -83,7 +81,7 @@ export default async function handler(req, res) {
     const channel = {
       ...publicReport.channel,
       videos,
-      analytics: { daily, dimensions },
+      analytics: { daily: daily.rows, dimensions },
     };
 
     return json(
@@ -93,7 +91,9 @@ export default async function handler(req, res) {
         channel,
         scope: 'private',
         fetchedAt: new Date().toISOString(),
-        capabilities: { subsPerVideo: true, early48h: false, retention: true, ctr: true, revenue: true },
+        // Reflete o que de fato foi obtido: receita cai para false num canal
+        // fora do Programa de Parcerias; CTR nunca é `true` (ver _analytics.js).
+        capabilities: { subsPerVideo: true, early48h: false, retention: true, ctr: false, revenue: daily.monetized },
       },
       NO_CACHE
     );

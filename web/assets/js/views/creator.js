@@ -239,7 +239,13 @@ function renderDashboard(host, ch, a, range, ctx) {
   });
   const cur = agg(rows);
   const old = agg(prev);
-  const ctr = cur.impressions ? (cur.views / cur.impressions) * 100 : 0;
+  // A Analytics API não expõe impressões/CTR de miniatura para contas comuns
+  // (ver _analytics.js) — os campos vêm sempre zerados. Sem essa checagem,
+  // "views ÷ impressões" viraria "views ÷ 1" por causa do Math.max de proteção
+  // contra divisão por zero, exibindo um número grande e sem sentido em vez de
+  // admitir que o dado não existe.
+  const hasImpressions = cur.impressions > 0;
+  const ctr = hasImpressions ? (cur.views / cur.impressions) * 100 : 0;
   const ctrPrev = old.impressions ? (old.views / old.impressions) * 100 : 0;
   const rpm = cur.views ? (cur.revenue / cur.views) * 1000 : 0;
   const cpm = cur.views ? (cur.revenue / (cur.views * 0.62)) * 1000 : 0;
@@ -269,11 +275,19 @@ function renderDashboard(host, ch, a, range, ctx) {
         sub: 'Os dois gargalos do funil',
         body: `
           <div class="grid" style="gap:12px">
-            ${bigStat('CTR de impressões', pct(ctr), pctChange(ctr, ctrPrev), `${compact(cur.impressions)} impressões`)}
+            ${hasImpressions
+              ? bigStat('CTR de impressões', pct(ctr), pctChange(ctr, ctrPrev), `${compact(cur.impressions)} impressões`)
+              : bigStat('CTR de impressões', 'Indisponível', null, 'a Analytics API não expõe isso para esta conta')}
             ${bigStat('Duração média assistida', duration(avgDur), null, `${pct(mean(a.videos, (v) => v.avgViewPct), 0)} do vídeo, em média`)}
-            ${bigStat('Views por impressão', dec(cur.views / Math.max(1, cur.impressions), 2), null, 'cliques por miniatura exibida')}
+            ${hasImpressions
+              ? bigStat('Views por impressão', dec(cur.views / cur.impressions, 2), null, 'cliques por miniatura exibida')
+              : bigStat('Views por impressão', 'Indisponível', null, 'depende do dado de impressões acima')}
           </div>
-          <div class="chart" data-chart="ctr" style="min-height:130px;margin-top:14px"></div>`,
+          ${hasImpressions
+            ? `<div class="chart" data-chart="ctr" style="min-height:130px;margin-top:14px"></div>`
+            : `<p class="muted fs12" style="margin-top:14px;padding:12px;background:var(--surface-2);border-radius:var(--r-sm)">
+                 O CTR de miniaturas que aparece no YouTube Studio não é exposto pela Analytics API pública para contas comuns.
+               </p>`}`,
       })}
     </div>
 
@@ -341,13 +355,18 @@ function renderDashboard(host, ch, a, range, ctx) {
     formatValue: (v) => int(v),
   });
 
-  lineChart(host.querySelector('[data-chart="ctr"]'), {
-    labels,
-    series: [{ name: 'CTR', values: rows.map((r) => r.impressionClickThroughRate), color: colors[5] }],
-    height: 130,
-    formatY: (v) => `${dec(v, 0)}%`,
-    formatValue: (v) => pct(v),
-  });
+  // Sem impressões, o bloco correspondente nem entra no HTML (ver acima) —
+  // o container não existe no DOM, então só desenhamos se ele estiver lá.
+  const ctrChartEl = host.querySelector('[data-chart="ctr"]');
+  if (ctrChartEl) {
+    lineChart(ctrChartEl, {
+      labels,
+      series: [{ name: 'CTR', values: rows.map((r) => r.impressionClickThroughRate), color: colors[5] }],
+      height: 130,
+      formatY: (v) => `${dec(v, 0)}%`,
+      formatValue: (v) => pct(v),
+    });
+  }
 
   barChart(host.querySelector('[data-chart="subs"]'), {
     labels,
