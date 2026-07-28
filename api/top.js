@@ -15,6 +15,7 @@
  */
 
 import { fetchChannelsByHandles, YouTubeError } from './_youtube.js';
+import { trackChannel } from './_store.js';
 import { json, fail, guard, handleYouTubeError } from './_http.js';
 
 /**
@@ -83,6 +84,14 @@ export default async function handler(req, res) {
       .sort((a, b) => b.statistics.subscriberCount - a.statistics.subscriberCount)
       .slice(0, limit)
       .map((c, i) => ({ ...c, rank: i + 1 }));
+
+    // O Top 20 resolve dezenas de canais reais de uma vez — oportunidade
+    // natural de semear o histórico de crescimento, sem depender de alguém
+    // abrir cada canal individualmente. Fogo e esquece: falha aqui não pode
+    // atrasar nem derrubar a resposta do ranking.
+    Promise.allSettled(
+      ranked.map((c) => trackChannel(c.id, { title: c.title, handle: c.handle, thumbnail: c.thumbnail }))
+    ).catch(() => {});
 
     return json(
       res,
