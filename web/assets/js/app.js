@@ -8,7 +8,7 @@
  */
 
 import * as store from './store.js';
-import { icon, qs } from './ui.js';
+import { icon, qs, brandMark } from './ui.js';
 import { redrawAll } from './charts.js';
 import { mountSearch } from './views/searchbox.js';
 import { can, PLAN_BY_ID } from './plans.js';
@@ -60,21 +60,20 @@ function shellHtml() {
       <div class="nav-backdrop" data-nav-close></div>
       <aside class="nav" aria-label="Navegação principal">
         <div class="nav-brand">
-          <a href="#/" class="flex ac g8" style="gap:9px"><span class="logo-mark"></span><strong>TubeMetrics</strong></a>
+          <a href="#/" class="flex ac g8" style="gap:9px"><span class="logo-mark"></span><strong>${brandMark()}</strong></a>
         </div>
         <div class="nav-scroll" data-nav-links></div>
         <div class="nav-foot">
           <div class="plan-box" data-plan-box></div>
-          <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:9px;justify-content:flex-start" data-theme-toggle>
-            ${icon('sun')} <span data-theme-label>Tema claro</span>
-          </button>
         </div>
       </aside>
 
       <div class="main">
         <header class="topbar">
           <button class="btn btn-ghost btn-icon btn-sm nav-toggle" data-nav-open aria-label="Abrir menu">${icon('menu')}</button>
-          <div class="crumbs"><span>TubeMetrics</span>${icon('chevron')}<b data-crumb>—</b></div>
+          <button class="btn btn-ghost btn-icon btn-sm nav-collapse-btn" data-nav-collapse
+            aria-label="Esconder ou revelar a barra lateral" title="Esconder ou revelar a barra lateral">${icon('sidebar')}</button>
+          <div class="crumbs"><span>${brandMark()}</span>${icon('chevron')}<b data-crumb>—</b></div>
           <div class="spacer"></div>
           <div class="search-wrap">
             ${icon('search')}
@@ -114,11 +113,8 @@ function paintNav(activeId) {
       : `<div class="meter"><i style="width:${Math.min(100, (used / limit) * 100)}%"></i></div>
          <div class="hint">${int(Math.min(used, limit))} de ${int(limit)} análises usadas</div>`}`;
 
-  const label = s.theme === 'dark' ? 'Tema escuro' : 'Tema claro';
-  document.querySelectorAll('[data-theme-label]').forEach((e) => (e.textContent = label));
   document.querySelectorAll('[data-theme-toggle]').forEach((b) => {
-    const span = b.querySelector('[data-theme-label]');
-    b.innerHTML = `${icon(s.theme === 'dark' ? 'moon' : 'sun')}${span ? `<span data-theme-label>${label}</span>` : ''}`;
+    b.innerHTML = icon(s.theme === 'dark' ? 'moon' : 'sun');
   });
 }
 
@@ -165,6 +161,7 @@ async function render() {
     app.innerHTML = shellHtml();
     shellMounted = true;
     wireShell();
+    applyNavCollapsed();
   }
   paintNav(route.nav);
   qs('[data-crumb]').textContent = route.title;
@@ -183,6 +180,19 @@ function wireShell() {
   });
   qs('[data-nav-open]').addEventListener('click', () => document.body.classList.add('nav-open'));
   qs('[data-nav-close]').addEventListener('click', () => document.body.classList.remove('nav-open'));
+
+  qs('[data-nav-collapse]').addEventListener('click', () => {
+    const collapsed = !store.get().navCollapsed;
+    store.set({ navCollapsed: collapsed });
+    document.body.classList.toggle('nav-collapsed', collapsed);
+    // A largura da barra mudou: os gráficos precisam recalcular o próprio espaço.
+    setTimeout(() => redrawAll(), 260);
+  });
+}
+
+/** Preferência de barra recolhida, aplicada ao montar a casca. */
+function applyNavCollapsed() {
+  document.body.classList.toggle('nav-collapsed', !!store.get().navCollapsed);
 }
 
 /* ------------------------------------------------------- eventos globais */

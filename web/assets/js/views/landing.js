@@ -1,9 +1,10 @@
 /** landing.js — Página pública de entrada: proposta de valor + busca. */
 
-import { icon, avatar, toast } from '../ui.js';
+import { icon, avatar, toast, brandMark } from '../ui.js';
 import { mountSearch } from './searchbox.js';
 import { topChannels } from '../api.js';
 import { ensureLead } from './signup.js';
+import { featureMatrix } from './feature-matrix.js';
 import { PLANS } from '../plans.js';
 import { esc, money } from '../format.js';
 import * as store from '../store.js';
@@ -27,7 +28,7 @@ export default async function landing(root, _params, ctx) {
   root.innerHTML = `
     <div class="landing">
       <nav class="lp-nav">
-        <div class="brand"><span class="logo-mark"></span><strong>TubeMetrics</strong></div>
+        <div class="brand"><span class="logo-mark"></span><strong>${brandMark()}</strong></div>
         <div class="grow"></div>
         <button class="btn btn-ghost btn-sm" data-nav="#/planos">Planos</button>
         <button class="btn btn-ghost btn-sm btn-icon" data-theme-toggle aria-label="Alternar tema">${icon('sun')}</button>
@@ -36,9 +37,10 @@ export default async function landing(root, _params, ctx) {
 
       <header class="hero">
         <div class="hero-inner">
-          <h1>Métricas de YouTube que já vêm <em>com a resposta</em></h1>
-          <p>Analise qualquer canal com dados públicos. Conecte o seu para ver receita, retenção e CTR reais.
-             Cada número desta plataforma sai de uma fórmula que você pode conferir.</p>
+          <span class="hero-badge">YouTube Analytics</span>
+          <h1>Análise avançada para quem quer crescer no <em>YouTube</em>.</h1>
+          <p>Explore qualquer canal do YouTube em segundos. Ao conectar o seu, tenha acesso a métricas reais
+             de receita, retenção e CTR, calculadas por fórmulas transparentes e verificáveis.</p>
 
           <form class="hero-search" data-search-form>
             <div class="search-wrap">
@@ -93,9 +95,13 @@ export default async function landing(root, _params, ctx) {
               <button class="btn ${p.featured ? 'btn-primary' : ''}" data-nav="#/planos">${esc(p.cta)}</button>
             </div>`).join('')}
         </div>
+
+        <div style="margin-top:26px">
+          ${featureMatrix({ title: 'Matriz de recursos', sub: 'O que cada plano libera, sem letra miúda' })}
+        </div>
       </section>
 
-      <footer class="lp-foot">TubeMetrics · Criado por NCodexx</footer>
+      <footer class="lp-foot">${brandMark()} · Criado por NCodexx</footer>
     </div>`;
 
   // Sugestões: canais reais de grande alcance, do mesmo ranking do Top 20.

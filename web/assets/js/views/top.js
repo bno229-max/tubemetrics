@@ -4,7 +4,43 @@ import { topChannels } from '../api.js';
 import { avatar, icon, sectionCard, gate, emptyState, toast } from '../ui.js';
 import { ensureLead } from './signup.js';
 import { hBarChart, SERIES_COLORS } from '../charts.js';
-import { esc, compact, int, dec } from '../format.js';
+import { esc, compact, int, dec, dateLong } from '../format.js';
+
+/**
+ * A API devolve os tópicos como termos da Wikipédia em inglês
+ * ("Music of Latin America"). Traduzimos os mais frequentes; o que não estiver
+ * no mapa aparece como veio, em vez de sumir.
+ */
+const TOPICOS_PT = {
+  Music: 'Música', 'Pop music': 'Música pop', 'Rock music': 'Rock', 'Hip hop music': 'Hip hop',
+  'Electronic music': 'Música eletrônica', 'Music of Latin America': 'Música latina',
+  'Independent music': 'Música independente', 'Christian music': 'Música cristã',
+  'Country music': 'Sertanejo e country', 'Soul music': 'Soul',
+  Entertainment: 'Entretenimento', 'Film': 'Cinema', 'Television program': 'TV',
+  'Performing arts': 'Artes cênicas', Humor: 'Humor',
+  'Video game culture': 'Cultura gamer', 'Action game': 'Games de ação',
+  'Action-adventure game': 'Games de aventura', 'Role-playing video game': 'RPG',
+  'Strategy video game': 'Games de estratégia', 'Sports game': 'Games de esporte',
+  'Racing video game': 'Games de corrida', 'Casual game': 'Games casuais',
+  'Puzzle video game': 'Games de puzzle', 'Simulation video game': 'Simuladores',
+  Lifestyle: 'Estilo de vida', 'Food': 'Culinária', 'Health': 'Saúde',
+  'Physical fitness': 'Fitness', Fashion: 'Moda', Beauty: 'Beleza',
+  'Pet': 'Pets', 'Hobby': 'Hobbies', 'Vehicle': 'Veículos',
+  Society: 'Sociedade', Politics: 'Política', Religion: 'Religião',
+  Knowledge: 'Conhecimento', Technology: 'Tecnologia', Business: 'Negócios',
+  Sport: 'Esportes', 'Association football': 'Futebol', 'Basketball': 'Basquete',
+  'Motorsport': 'Automobilismo', 'Combat sport': 'Esportes de combate',
+  Tourism: 'Turismo', 'Military': 'Militar',
+};
+
+const traduzTopico = (t) => TOPICOS_PT[t] || t;
+
+/** Tópico mais específico do canal: os genéricos aparecem em quase todo mundo. */
+const GENERICOS = new Set(['Music', 'Entertainment', 'Lifestyle', 'Society', 'Knowledge', 'Sport', 'Hobby', 'Film']);
+function nichoPrincipal(c) {
+  const t = c.topicCategories || [];
+  return traduzTopico(t.find((x) => !GENERICOS.has(x)) || t[0] || '—');
+}
 import { can, requiredPlan, PLAN_BY_ID } from '../plans.js';
 import * as store from '../store.js';
 
@@ -59,13 +95,43 @@ export default async function top(root, _params, ctx) {
   }
 
   const colors = SERIES_COLORS();
-  const totalInscritos = canais.reduce((s2, c) => s2 + c.statistics.subscriberCount, 0);
+  const ANO = 365.25 * 86400000;
+
+  // Métricas derivadas do que a API já entregou — nenhuma chamada extra.
+  const enriquecidos = canais.map((c) => {
+    const st = c.statistics;
+    const idadeAnos = (Date.now() - new Date(c.publishedAt)) / ANO;
+    return {
+      ...c,
+      idadeAnos,
+      nicho: nichoPrincipal(c),
+      viewsPorVideo: st.videoCount ? st.viewCount / st.videoCount : 0,
+      viewsPorInscrito: st.subscriberCount ? st.viewCount / st.subscriberCount : 0,
+      videosPorAno: idadeAnos > 0 ? st.videoCount / idadeAnos : 0,
+      inscritosPorAno: idadeAnos > 0 ? st.subscriberCount / idadeAnos : 0,
+    };
+  });
+
+  const totalInscritos = enriquecidos.reduce((s2, c) => s2 + c.statistics.subscriberCount, 0);
+  const totalViews = enriquecidos.reduce((s2, c) => s2 + c.statistics.viewCount, 0);
+  const maisEficiente = [...enriquecidos].sort((a, b) => b.viewsPorVideo - a.viewsPorVideo)[0];
+  const maisProlifico = [...enriquecidos].sort((a, b) => b.videosPorAno - a.videosPorAno)[0];
+  const maisRapido = [...enriquecidos].sort((a, b) => b.inscritosPorAno - a.inscritosPorAno)[0];
+
+  const nichos = enriquecidos.reduce((acc, c) => ((acc[c.nicho] = (acc[c.nicho] || 0) + 1), acc), {});
+  const nichoTop = Object.entries(nichos).sort((a, b) => b[1] - a[1])[0];
 
   body.innerHTML = `
-    <div class="grid g3" style="margin-bottom:18px">
-      ${miniCard('Canais no ranking', int(canais.length), 'trophy')}
-      ${miniCard('Inscritos somados', compact(totalInscritos), 'users')}
-      ${miniCard('Maior do ranking', esc(canais[0].title), 'star')}
+    <div class="grid g4" style="margin-bottom:14px">
+      ${miniCard('Inscritos somados', compact(totalInscritos), 'users', `${int(enriquecidos.length)} canais`)}
+      ${miniCard('Views somadas', compact(totalViews), 'eye', 'desde a criação dos canais')}
+      ${miniCard('Nicho mais comum', esc(nichoTop?.[0] || '—'), 'target', `${nichoTop?.[1] || 0} canais do ranking`)}
+      ${miniCard('Cresce mais rápido', esc(maisRapido.title), 'up', `${compact(maisRapido.inscritosPorAno)} inscritos/ano`)}
+    </div>
+
+    <div class="grid g2" style="margin-bottom:18px">
+      ${miniCard('Maior alcance por vídeo', esc(maisEficiente.title), 'zap', `${compact(maisEficiente.viewsPorVideo)} views por vídeo`)}
+      ${miniCard('Publica mais', esc(maisProlifico.title), 'calendar', `${int(maisProlifico.videosPorAno)} vídeos por ano`)}
     </div>
 
     ${sectionCard({
@@ -74,54 +140,82 @@ export default async function top(root, _params, ctx) {
       pad: false,
       body: `<div class="tbl-wrap"><table class="tbl">
         <thead><tr>
-          <th style="width:52px">#</th><th>Canal</th>
+          <th style="width:52px">#</th><th>Canal</th><th>Nicho</th>
           <th class="n">Inscritos</th><th class="n">Views totais</th>
-          <th class="n">Vídeos</th><th class="n">Views por inscrito</th><th></th>
+          <th class="n">Vídeos</th><th class="n">Views/vídeo</th>
+          <th class="n">Views/inscrito</th><th class="n">Vídeos/ano</th>
+          <th class="n">No ar desde</th><th></th>
         </tr></thead>
-        <tbody>${canais.map((c) => {
-          const porInscrito = c.statistics.subscriberCount
-            ? c.statistics.viewCount / c.statistics.subscriberCount
-            : 0;
-          return `<tr data-open="${esc(c.id)}" style="cursor:pointer">
+        <tbody>${enriquecidos.map((c) => `
+          <tr data-open="${esc(c.id)}" style="cursor:pointer">
             <td><span class="rank-badge${c.rank <= 3 ? ' top' : ''}">${c.rank}</span></td>
             <td>
               <div class="flex ac g12">
                 ${avatar(c, 36)}
                 <div style="min-width:0">
                   <div style="font-weight:580;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.title)}</div>
-                  <div class="muted fs12">${esc(c.handle || c.country || '')}</div>
+                  <div class="muted fs12">${esc(c.handle || '')}</div>
                 </div>
               </div>
             </td>
+            <td><span class="chip">${esc(c.nicho)}</span></td>
             <td class="n"><b>${compact(c.statistics.subscriberCount)}</b></td>
             <td class="n">${compact(c.statistics.viewCount)}</td>
             <td class="n muted">${int(c.statistics.videoCount)}</td>
-            <td class="n">${dec(porInscrito, 0)}</td>
+            <td class="n">${compact(c.viewsPorVideo)}</td>
+            <td class="n">${dec(c.viewsPorInscrito, 0)}</td>
+            <td class="n muted">${int(c.videosPorAno)}</td>
+            <td class="n muted">${dateLong(c.publishedAt).replace(/^\d+ de /, '')}</td>
             <td class="n muted">${icon('chevron')}</td>
-          </tr>`;
-        }).join('')}</tbody>
-      </table></div>`,
+          </tr>`).join('')}</tbody>
+      </table></div>
+      <div style="padding:12px 16px;border-top:1px solid var(--border)" class="muted fs12">
+        <b>Views por inscrito</b> mede quanto o catálogo roda além da base — número alto indica conteúdo que
+        circula fora dos inscritos. <b>Views por vídeo</b> mede eficiência: canal com poucos vídeos e muitas
+        views acerta mais por publicação do que quem compensa no volume.
+      </div>`,
     })}
 
-    <div class="section">
+    <div class="section grid g2">
       ${sectionCard({
         title: 'Inscritos, lado a lado',
         sub: 'A distância entre o topo e o resto costuma ser maior do que parece na tabela',
         body: `<div class="chart" data-chart="bars"></div>`,
       })}
+      ${sectionCard({
+        title: 'Alcance por vídeo',
+        sub: 'Views medianas por publicação — quem rende mais por peça produzida',
+        body: `<div class="chart" data-chart="eficiencia"></div>`,
+      })}
     </div>`;
 
   hBarChart(body.querySelector('[data-chart="bars"]'), {
-    rows: canais.map((c, i) => ({
+    rows: enriquecidos.map((c, i) => ({
       label: c.title,
       value: c.statistics.subscriberCount,
       color: colors[i % colors.length],
       tip: `<div class="tr"><span class="l">Views totais</span><b>${compact(c.statistics.viewCount)}</b></div>
-            <div class="tr"><span class="l">Vídeos</span><b>${int(c.statistics.videoCount)}</b></div>`,
+            <div class="tr"><span class="l">Vídeos</span><b>${int(c.statistics.videoCount)}</b></div>
+            <div class="tr"><span class="l">Nicho</span><b>${esc(c.nicho)}</b></div>`,
     })),
     formatValue: compact,
-    labelWidth: 160,
-    rowHeight: 30,
+    labelWidth: 150,
+    rowHeight: 28,
+  });
+
+  hBarChart(body.querySelector('[data-chart="eficiencia"]'), {
+    rows: [...enriquecidos]
+      .sort((a, b) => b.viewsPorVideo - a.viewsPorVideo)
+      .map((c, i) => ({
+        label: c.title,
+        value: Math.round(c.viewsPorVideo),
+        color: colors[i % colors.length],
+        tip: `<div class="tr"><span class="l">Vídeos publicados</span><b>${int(c.statistics.videoCount)}</b></div>
+              <div class="tr"><span class="l">Inscritos</span><b>${compact(c.statistics.subscriberCount)}</b></div>`,
+      })),
+    formatValue: compact,
+    labelWidth: 150,
+    rowHeight: 28,
   });
 
   body.addEventListener('click', async (e) => {
@@ -131,10 +225,11 @@ export default async function top(root, _params, ctx) {
   });
 }
 
-function miniCard(label, value, iconName) {
+function miniCard(label, value, iconName, sub = '') {
   return `<div class="card" style="padding:15px 16px">
     <div class="flex ac g8" style="color:var(--text-3)">${icon(iconName)}<span class="fs12" style="font-weight:550">${esc(label)}</span></div>
-    <div class="num" style="font-size:21px;font-weight:650;letter-spacing:-.025em;margin-top:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${value}</div>
+    <div class="num" style="font-size:20px;font-weight:650;letter-spacing:-.025em;margin-top:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${value}</div>
+    ${sub ? `<div class="muted fs12" style="margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${sub}</div>` : ''}
   </div>`;
 }
 

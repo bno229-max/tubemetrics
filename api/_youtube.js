@@ -155,7 +155,21 @@ function toChannelCard(c) {
     topicCategories: (c.topicDetails?.topicCategories || [])
       .map((u) => decodeURIComponent(String(u).split('/').pop() || '').replace(/_/g, ' '))
       .slice(0, 4),
+    // Palavras-chave declaradas pelo canal, quando `brandingSettings` foi pedido.
+    keywords: parseKeywords(c.brandingSettings?.channel?.keywords).slice(0, 8),
   };
+}
+
+/**
+ * As keywords vêm numa string única, com aspas agrupando termos compostos:
+ *   `receitas "comida barata" culinaria`
+ * Um split por espaço quebraria os termos compostos ao meio.
+ */
+function parseKeywords(raw) {
+  if (!raw) return [];
+  return (String(raw).match(/"[^"]+"|\S+/g) || [])
+    .map((k) => k.replace(/^"|"$/g, '').trim())
+    .filter((k) => k.length > 1);
 }
 
 /**
@@ -167,9 +181,15 @@ function toChannelCard(c) {
  * são descartados: canal renomeado não pode derrubar a lista inteira.
  */
 export async function fetchChannelsByHandles(handles, apiKey) {
+  // `brandingSettings` vem no mesmo pedido, sem custo extra de cota, e traz as
+  // palavras-chave que o canal declara sobre si — útil para inferir nicho.
   const results = await Promise.allSettled(
     handles.map((h) =>
-      call('channels', { part: 'snippet,statistics,topicDetails', forHandle: h.replace(/^@/, '') }, apiKey)
+      call(
+        'channels',
+        { part: 'snippet,statistics,topicDetails,brandingSettings', forHandle: h.replace(/^@/, '') },
+        apiKey
+      )
     )
   );
 

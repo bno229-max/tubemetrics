@@ -18,8 +18,6 @@ export default async function discover(root, _params, ctx) {
         <div class="top">
           <div>
             <h1>Descobrir canais</h1>
-            <p>Análise pública via YouTube Data API — sem permissão do dono do canal.
-               Inscritos, views, cadência, mix de formatos e o consultor de dados completo.</p>
           </div>
           <div class="actions">
             ${quota.limit === Infinity

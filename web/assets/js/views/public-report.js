@@ -82,7 +82,6 @@ export default async function publicReport(root, params, ctx) {
         </div>
       </div>
 
-      ${sourceBanner(report, a)}
       <div style="margin-bottom:20px">${segment('tab', TABS.map((t) => ({ value: t.id, label: t.label })), tab)}</div>
       <div data-tab-body></div>
     </div>`;
@@ -127,47 +126,6 @@ export default async function publicReport(root, params, ctx) {
     toast(r.added ? `${ch.title} salvo nos favoritos` : `${ch.title} removido dos favoritos`, 'success');
     ctx.navigate(`#/canal/${id}/${tab}`);
   });
-}
-
-/**
- * Faixa de procedência dos dados.
- *
- * Existe porque o mesmo relatório pode vir de três origens muito diferentes —
- * API real, cache, ou dados de demonstração — e confundir as três é o jeito
- * mais rápido de alguém tomar uma decisão de conteúdo baseada em ficção.
- */
-function sourceBanner(report, a) {
-  const caps = a.capabilities;
-  const faltando = [
-    !caps.subsPerVideo && 'inscritos por vídeo',
-    !caps.early48h && 'desempenho das primeiras 48 h',
-    !caps.retention && 'retenção de audiência',
-  ].filter(Boolean);
-
-  if (report.source === 'mock') {
-    return `<div class="insight info" style="margin-bottom:18px">
-      <div class="ico">${icon('info')}</div>
-      <div class="grow">
-        <h4>Dados de demonstração</h4>
-        <p>Este canal é sintético e serve para exercitar a interface. Configure a chave da YouTube Data API
-           no backend para analisar canais reais — o passo a passo está no <code style="font-family:var(--mono);font-size:12px">SETUP.md</code>.</p>
-      </div>
-    </div>`;
-  }
-
-  const quando = report.fetchedAt ? ` · coletado ${relativeDays(report.fetchedAt)}` : '';
-  return `<div class="insight ${report.stale ? 'warn' : 'pos'}" style="margin-bottom:18px">
-    <div class="ico">${icon(report.stale ? 'alert' : 'check')}</div>
-    <div class="grow">
-      <h4>YouTube Analytics Free${report.cached ? ' (em cache)' : ''}</h4>
-      <p>${report.stale
-          ? 'A cota do dia acabou, então estamos mostrando a última coleta bem-sucedida.'
-          : `Métricas públicas do canal${quando}.`}
-        ${faltando.length
-          ? `A API pública não expõe ${listPt(faltando)} — essas análises ficam disponíveis quando o dono conecta o canal, ou depois que o histórico diário for coletado.`
-          : ''}</p>
-    </div>
-  </div>`;
 }
 
 /* ==========================================================================

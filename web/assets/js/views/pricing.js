@@ -1,26 +1,10 @@
 /** pricing.js — Planos, matriz de recursos e troca de plano (demo). */
 
-import { PLANS, FEATURES, LIMITS, PLAN_BY_ID, can } from '../plans.js';
-import { icon, toast, sectionCard } from '../ui.js';
-import { esc, int, money } from '../format.js';
+import { PLANS, PLAN_BY_ID } from '../plans.js';
+import { icon, toast } from '../ui.js';
+import { featureMatrix } from './feature-matrix.js';
+import { esc, money } from '../format.js';
 import * as store from '../store.js';
-
-const LIMIT_LABELS = {
-  searchesPerMonth: 'Análises de canal por mês',
-  favorites: 'Canais favoritos',
-  comparisonSlots: 'Canais em comparação',
-  connectedChannels: 'Canais conectados',
-  historyDays: 'Histórico disponível',
-  seats: 'Assentos de equipe',
-  topVideos: 'Vídeos por ranking',
-};
-
-const fmtLimit = (key, v) => {
-  if (v === Infinity) return 'Ilimitado';
-  if (key === 'historyDays') return v >= 365 ? `${Math.round(v / 365)} ano${v >= 730 ? 's' : ''}` : `${v} dias`;
-  if (v === 0) return '—';
-  return int(v);
-};
 
 export default async function pricing(root, _params, ctx) {
   const current = store.get().plan;
@@ -56,42 +40,9 @@ export default async function pricing(root, _params, ctx) {
       </div>
 
       <div class="section">
-        ${sectionCard({
-          title: 'Matriz de recursos',
-          sub: 'Exatamente o que a tabela de feature flags declara',
-          pad: false,
-          body: `<div class="tbl-wrap"><table class="tbl">
-            <thead><tr><th>Recurso</th>${PLANS.map((p) => `<th class="n">${esc(p.name)}</th>`).join('')}</tr></thead>
-            <tbody>
-              ${Object.entries(FEATURES).map(([key, f]) => `
-                <tr><td><b style="font-weight:550">${esc(f.label)}</b>
-                  <div class="muted" style="font-family:var(--mono);font-size:11px;margin-top:2px">${esc(key)}</div></td>
-                  ${PLANS.map((p) => `<td class="n">${can(p.id, key)
-                    ? `<span style="color:var(--pos);display:inline-block;width:16px">${icon('checkSmall')}</span>`
-                    : `<span class="muted" style="display:inline-block;width:16px">${icon('close')}</span>`}</td>`).join('')}
-                </tr>`).join('')}
-              <tr><td colspan="${PLANS.length + 1}" style="background:var(--surface-2)"><span class="label">Limites numéricos</span></td></tr>
-              ${Object.keys(LIMIT_LABELS).map((key) => `
-                <tr><td><b style="font-weight:550">${esc(LIMIT_LABELS[key])}</b>
-                  <div class="muted" style="font-family:var(--mono);font-size:11px;margin-top:2px">${esc(key)}</div></td>
-                  ${PLANS.map((p) => `<td class="n">${fmtLimit(key, LIMITS[p.id][key])}</td>`).join('')}
-                </tr>`).join('')}
-            </tbody>
-          </table></div>`,
-        })}
+        ${featureMatrix({ showKeys: true, sub: 'Exatamente o que a tabela de feature flags declara' })}
       </div>
 
-      <div class="section">
-        <div class="insight info">
-          <div class="ico">${icon('shield')}</div>
-          <div class="grow">
-            <h4>Flag de cliente é experiência, não segurança</h4>
-            <p>Nesta demonstração o bloqueio acontece no navegador. Em produção, a mesma tabela vive no servidor:
-               a rota recusa o dado antes de montar a resposta, e o front apenas reflete o que já foi negado.
-               Esconder no cliente sem barrar no servidor é convite a inspecionar a rede.</p>
-          </div>
-        </div>
-      </div>
     </div>`;
 
   root.querySelectorAll('[data-plan]').forEach((b) => {

@@ -307,7 +307,10 @@ select.input { cursor: pointer; -webkit-appearance: none; appearance: none;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
-.nav-brand strong { font-size: 15px; font-weight: 680; letter-spacing: -0.025em; }
+.nav-brand strong { font-size: 15px; font-weight: 680; letter-spacing: -0.025em; white-space: nowrap; }
+
+/* Marca em duas cores: "Tube" em vermelho, "Metrics" na cor do texto. */
+.brand-mark > i { font-style: normal; color: var(--yt-500); }
 
 .logo-mark {
   width: 26px; height: 19px;
@@ -793,6 +796,20 @@ table.tbl tbody tr:hover { background: var(--surface-2); }
   pointer-events: none;
 }
 .hero-inner { position: relative; max-width: 800px; margin: 0 auto; }
+
+.hero-badge {
+  display: inline-block;
+  padding: 6px 16px;
+  margin-bottom: 22px;
+  border: 1px solid var(--yt-500);
+  border-radius: 99px;
+  font-size: 13px;
+  font-weight: 560;
+  letter-spacing: -0.005em;
+  color: var(--yt-600);
+  background: var(--yt-soft);
+}
+[data-theme="dark"] .hero-badge { color: var(--yt-400); }
 .hero h1 {
   font-size: clamp(32px, 5.4vw, 52px);
   font-weight: 700;
@@ -845,6 +862,36 @@ table.tbl tbody tr:hover { background: var(--surface-2); }
   box-shadow: var(--sh-1);
 }
 .no-ai-band svg { width: 14px; height: 14px; color: var(--yt-500); }
+
+/* ------------------------------------------- barra lateral recolhida -- */
+
+/**
+ * Recolher a barra deixa só os ícones (64 px) e devolve o espaço ao conteúdo —
+ * útil em tabelas largas como a comparação de canais e o Top 20.
+ * Em telas pequenas a barra já vira gaveta, então o estado recolhido é ignorado.
+ */
+@media (min-width: 901px) {
+  body.nav-collapsed { --nav-w: 64px; }
+  body.nav-collapsed .nav-brand strong,
+  body.nav-collapsed .nav-group > .label,
+  body.nav-collapsed .nav-link span,
+  body.nav-collapsed .nav-link .lock,
+  body.nav-collapsed .plan-box .meter,
+  body.nav-collapsed .plan-box .hint,
+  body.nav-collapsed .plan-box .row > *:last-child { display: none; }
+
+  body.nav-collapsed .nav-brand { justify-content: center; padding: 0; }
+  body.nav-collapsed .nav-scroll { padding: 14px 8px 20px; }
+  body.nav-collapsed .nav-link { justify-content: center; padding: 0; }
+  body.nav-collapsed .nav-link.active::before { left: -8px; }
+  body.nav-collapsed .nav-foot { padding: 10px 8px; }
+  body.nav-collapsed .plan-box { padding: 8px; text-align: center; }
+  body.nav-collapsed .plan-box .name { font-size: 11px; }
+  body.nav-collapsed .plan-box .row { justify-content: center; }
+}
+
+.nav-collapse-btn { display: none; }
+@media (min-width: 901px) { .nav-collapse-btn { display: inline-flex; } }
 
 /* ========================================================= responsivo == */
 

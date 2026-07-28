@@ -15,6 +15,8 @@ const KEY = 'tubemetrics.state.v2';
 const DEFAULTS = {
   plan: 'free',
   theme: 'light',
+  /** Barra lateral recolhida (só ícones), preferência do usuário. */
+  navCollapsed: false,
   connected: false,
   connectedChannels: [],
   /** Cadastro do usuário (nome, telefone, e-mail). `null` = ainda não fez. */

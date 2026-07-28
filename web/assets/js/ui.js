@@ -54,6 +54,7 @@ const ICONS = {
   video: '<rect x="2.5" y="6" width="13" height="12" rx="2.5"/><path d="m15.5 11 6-3v8l-6-3z"/>',
   star: '<path d="m12 3.5 2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>',
   starFilled: '<path d="m12 3.5 2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z" fill="currentColor"/>',
+  sidebar: '<rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M9.5 4v16"/>',
   trophy: '<path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4.5v1.5A3.5 3.5 0 0 0 8 11"/><path d="M17 6h2.5v1.5A3.5 3.5 0 0 1 16 11"/><path d="M12 14v3"/><path d="M8.5 20h7"/><path d="M10 17h4l.7 3h-5.4z"/>',
 };
 
@@ -68,6 +69,9 @@ export function icon(name, cls = '') {
 }
 
 /* --------------------------------------------------------------- helpers */
+
+/** Marca com "Tube" destacado em vermelho. Usada onde o nome aparece. */
+export const brandMark = () => '<span class="brand-mark"><i>Tube</i>Metrics</span>';
 
 export const qs = (sel, root = document) => root.querySelector(sel);
 export const qsa = (sel, root = document) => [...root.querySelectorAll(sel)];

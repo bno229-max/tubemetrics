@@ -40,7 +40,8 @@ export const LIMITS = {
   free:    { searchesPerMonth: 3,        favorites: 0,        comparisonSlots: 0,  connectedChannels: 0,  historyDays: 90,   seats: 1, topVideos: 10 },
   starter: { searchesPerMonth: 80,       favorites: 5,        comparisonSlots: 2,  connectedChannels: 1,  historyDays: 730,  seats: 1, topVideos: 100 },
   pro:     { searchesPerMonth: 180,      favorites: 15,       comparisonSlots: 5,  connectedChannels: 5,  historyDays: 1095, seats: 5, topVideos: Infinity },
-  creator: { searchesPerMonth: Infinity, favorites: Infinity, comparisonSlots: 10, connectedChannels: 15, historyDays: 1095, seats: 8, topVideos: Infinity },
+  // Creator entrega os mesmos benefícios do Pro, mudando só a escala de canais.
+  creator: { searchesPerMonth: Infinity, favorites: Infinity, comparisonSlots: 10, connectedChannels: 15, historyDays: 1095, seats: 5, topVideos: Infinity },
 };
 
 export const PLANS = [
@@ -65,6 +66,7 @@ export const PLANS = [
     featured: true,
     tagline: 'Para quem publica toda semana e decide com dado.',
     highlights: [
+      'Tudo do plano Grátis',
       '80 análises de canal por mês',
       'Histórico completo e relatórios detalhados',
       'Consultor de dados: melhor horário, duração e frequência',
@@ -82,8 +84,8 @@ export const PLANS = [
     price: 179.9,
     tagline: 'Para redes de canais, agências e times.',
     highlights: [
+      'Tudo do plano Starter',
       '180 análises de canal por mês',
-      'Tudo do Starter',
       '5 canais conectados (gestão de rede)',
       'Comparação de até 5 canais',
       'Até 15 canais favoritos',
@@ -99,12 +101,11 @@ export const PLANS = [
     price: 249.9,
     tagline: 'Para operações grandes, com muitos canais sob gestão.',
     highlights: [
+      'Tudo do plano Pro',
       'Análises de canal ilimitadas',
-      'Tudo do Pro',
       '15 canais conectados',
       'Comparação de até 10 canais',
       'Favoritos ilimitados',
-      '8 assentos para a equipe',
       'Suporte prioritário',
     ],
     missing: [],
