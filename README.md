@@ -35,29 +35,20 @@ cliente, não há nada para buscar depois do primeiro carregamento.
 
 ## Publicação
 
-No ar em **https://tubemetrics-saas.web.app** (Firebase Hosting, projeto `tubemetrics-saas`).
-
-```bash
-cd tubemetrics
-firebase deploy --only hosting
-```
-
-O projeto é **separado** do `cardapio-digital-max` de propósito: cota da YouTube API, tela de
-consentimento OAuth e faturamento são por projeto, e misturar dois produtos ali significa um
-consumir o limite do outro.
-
-Também há um `vercel.json` equivalente, caso prefira publicar lá (`npx vercel deploy --prod`).
+No ar em **https://tubemetrics.vercel.app** — repositório `bno229-max/tubemetrics`, deploy
+automático a cada `git push` na branch `main`. O `firebase.json` continua no projeto como espelho
+opcional, mas a Vercel é o caminho principal.
 
 O service worker usa *stale-while-revalidate* nos ativos: cada visita responde do cache na hora e
 baixa a versão nova em segundo plano. Na prática, um deploy aparece para o usuário no segundo
 carregamento — sem precisar bumpar o `CACHE` a cada publicação.
 
-### Estado da demonstração
+### Estado da sessão
 
-O plano ativo, o tema e a cota de buscas ficam em `localStorage`. Para reiniciar do zero:
+Plano ativo, tema, cadastro, favoritos, histórico e cota ficam em `localStorage`. Para reiniciar:
 
 ```js
-localStorage.removeItem('tubemetrics.state.v1')
+localStorage.removeItem('tubemetrics.state.v2')
 ```
 
 Em `#/planos` dá para trocar de plano e ver os cadeados abrindo e fechando em tempo real.
@@ -141,10 +132,6 @@ frequência de documento — o princípio do TF-IDF, sem nada de IA:
 No Manual do Mundo isso revelou o achado mais útil do relatório: vídeos sobre **carro** fazem 11× as
 views do vídeo típico e engajam 53% menos. Alcance de vitrine, conversão fraca — invisível em
 qualquer agrupamento por categoria.
-
-Três arquivos concentram as decisões do produto — `plans.js` (o que cada plano libera),
-`api.js` (de onde vêm os dados) e `engine.js` (como o dado vira resposta). Nenhuma view importa
-`mock-data.js`: trocar mock por rede é editar um arquivo.
 
 ### Para onde isso cresce (com back-end)
 
