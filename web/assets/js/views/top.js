@@ -33,12 +33,21 @@ const TOPICOS_PT = {
   Tourism: 'Turismo', 'Military': 'Militar',
 };
 
-const traduzTopico = (t) => TOPICOS_PT[t] || t;
+/**
+ * A API qualifica alguns termos entre parênteses ("Lifestyle (sociology)",
+ * "Society (social science)") porque vêm de artigos desambiguados da Wikipédia.
+ * O parêntese não diz nada ao usuário e quebraria a busca no mapa.
+ */
+const semQualificador = (t) => String(t || '').replace(/\s*\([^)]*\)\s*$/, '').trim();
+const traduzTopico = (t) => {
+  const base = semQualificador(t);
+  return TOPICOS_PT[base] || base || '—';
+};
 
 /** Tópico mais específico do canal: os genéricos aparecem em quase todo mundo. */
 const GENERICOS = new Set(['Music', 'Entertainment', 'Lifestyle', 'Society', 'Knowledge', 'Sport', 'Hobby', 'Film']);
 function nichoPrincipal(c) {
-  const t = c.topicCategories || [];
+  const t = (c.topicCategories || []).map(semQualificador);
   return traduzTopico(t.find((x) => !GENERICOS.has(x)) || t[0] || '—');
 }
 import { can, requiredPlan, PLAN_BY_ID } from '../plans.js';
