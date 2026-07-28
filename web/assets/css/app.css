@@ -693,6 +693,31 @@ table.tbl tbody tr:hover { background: var(--surface-2); }
   overflow: hidden;
 }
 
+/* --- capa do canal --- */
+
+/**
+ * A capa do YouTube tem proporção fixa e é cortada em cada dispositivo. Usamos
+ * `object-fit: cover` com altura fixa para evitar um bloco desproporcional em
+ * tela larga, e o degradê no rodapé garante contraste do conteúdo que vem logo
+ * abaixo, qualquer que seja a imagem.
+ */
+.ch-banner {
+  position: relative;
+  height: 150px;
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  background: var(--surface-2);
+  margin-bottom: 14px;
+}
+.ch-banner img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ch-banner::after {
+  content: "";
+  position: absolute; inset: auto 0 0 0; height: 52%;
+  background: linear-gradient(to top, color-mix(in srgb, var(--bg) 92%, transparent), transparent);
+  pointer-events: none;
+}
+@media (max-width: 640px) { .ch-banner { height: 96px; } }
+
 /* --- channel header --- */
 .ch-head { display: flex; gap: 18px; align-items: center; flex-wrap: wrap; }
 .ch-head .meta { min-width: 0; flex: 1; }

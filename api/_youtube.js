@@ -157,6 +157,16 @@ function toChannelCard(c) {
       .slice(0, 4),
     // Palavras-chave declaradas pelo canal, quando `brandingSettings` foi pedido.
     keywords: parseKeywords(c.brandingSettings?.channel?.keywords).slice(0, 8),
+    // Capa do canal. A API devolve a URL base; o servidor de imagens do Google
+    // exige um sufixo de tamanho, senão responde a versão original gigante.
+    banner: c.brandingSettings?.image?.bannerExternalUrl
+      ? `${c.brandingSettings.image.bannerExternalUrl}=w1707-fcrop64=1,00005a57ffffa5a8-k-c0xffffffff-no-nd-rj`
+      : null,
+    // Atalho para o canal: o handle é o formato que o YouTube prefere hoje,
+    // mas nem todo canal tem um — o /channel/UC... sempre funciona.
+    url: c.snippet?.customUrl
+      ? `https://www.youtube.com/${c.snippet.customUrl.startsWith('@') ? '' : '@'}${c.snippet.customUrl}`
+      : `https://www.youtube.com/channel/${c.id}`,
   };
 }
 
@@ -214,7 +224,11 @@ export async function fetchChannelsByHandles(handles, apiKey) {
  * O caro é a busca por nome (100), não a leitura do canal.
  */
 export async function fetchChannelReport(channelId, apiKey, { maxVideos = 200, categories = null } = {}) {
-  const chRes = await call('channels', { part: 'snippet,statistics,contentDetails,topicDetails', id: channelId }, apiKey);
+  const chRes = await call(
+    'channels',
+    { part: 'snippet,statistics,contentDetails,topicDetails,brandingSettings', id: channelId },
+    apiKey
+  );
 
   const raw = chRes.items?.[0];
   if (!raw) throw new YouTubeError('Canal não encontrado', 404, 'channelNotFound');

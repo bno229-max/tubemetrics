@@ -16,7 +16,6 @@ const LIMIT_LABELS = {
   comparisonSlots: 'Canais em comparação',
   connectedChannels: 'Canais conectados',
   historyDays: 'Histórico disponível',
-  seats: 'Assentos de equipe',
   topVideos: 'Vídeos por ranking',
 };
 

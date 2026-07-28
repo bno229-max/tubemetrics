@@ -22,17 +22,32 @@ import { json, fail, guard, handleYouTubeError } from './_http.js';
  * propósito: ciência, humor, games, culinária, música e entrevista.
  */
 const SEED_HANDLES = [
+  // Religião — o segmento que mais cresceu no Brasil nos últimos anos
+  'bispobrunoleonardo', 'padremarcelorossi', 'CancaoNova', 'ipdatransformacao',
+
+  // Infantil — categoria com os maiores números absolutos do país
+  'galinhapintadinha', 'MariaClaraeJP', 'LuccasToon', 'totoykids', 'mundobita',
+  'turmadamonica', 'BelParaMeninas', 'gatodegalochas', 'CleoPetitLIVE',
+
   // Entretenimento e humor
   'Whinderssonnunes', 'felipeneto', 'luccasneto', 'portadosfundos', 'vocesabia',
-  'T3ddy', 'Enaldinho', 'cocielo', 'Casimito', 'Desimpedidos',
+  'T3ddy', 'Enaldinho', 'cocielo', 'Casimito', 'Desimpedidos', 'gkay',
+
   // Games
-  'rezendeevil', 'AuthenticGames', 'jovemnerd',
+  'rezendeevil', 'AuthenticGames', 'jovemnerd', 'robinhoodgamer', 'juliaminegirl',
+  'Cellbit', 'coisadenerd',
+
   // Ciência, educação e curiosidades
   'manualdomundo', 'Nerdologia', 'CanalNostalgia',
+
   // Culinária
   'cheffotto', 'panelaterapia',
+
   // Música
-  'kondzilla', 'anitta', 'luansantana', 'wesleysafadao', 'henriquejuliano', 'jorgeemateus',
+  'kondzilla', 'anitta', 'luansantana', 'wesleysafadao', 'henriquejuliano',
+  'jorgeemateus', 'gusttavolima', 'zenetoecristiano', 'marilia', 'brunoemarrone',
+  'ivetesangalo', 'michelteloficial',
+
   // Entrevista e podcast
   'flowpodcast',
 ];

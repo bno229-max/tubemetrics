@@ -55,9 +55,12 @@ export default async function publicReport(root, params, ctx) {
   const inCompare = store.get().compare.includes(id);
   const favorito = store.isFavorite(id);
 
+  const canalUrl = ch.url || `https://www.youtube.com/channel/${ch.id}`;
+
   root.innerHTML = `
     <div class="page">
-      <div class="page-head">
+      ${ch.banner ? `<div class="ch-banner"><img src="${esc(ch.banner)}" alt="" decoding="async" referrerpolicy="no-referrer" onerror="this.closest('.ch-banner').remove()"></div>` : ''}
+      <div class="page-head${ch.banner ? ' has-banner' : ''}">
         <div class="ch-head">
           ${avatar(ch, 62)}
           <div class="meta">
@@ -72,6 +75,9 @@ export default async function publicReport(root, params, ctx) {
             </div>
           </div>
           <div class="actions" style="align-self:flex-start">
+            <a class="btn btn-sm" href="${esc(canalUrl)}" target="_blank" rel="noopener noreferrer">
+              ${icon('play')} Ver no YouTube
+            </a>
             <button class="btn btn-sm" data-favorite aria-pressed="${favorito}"
               style="${favorito ? 'color:var(--yt-600);border-color:var(--yt-500);background:var(--yt-soft)' : ''}">
               ${icon(favorito ? 'starFilled' : 'star')} ${favorito ? 'Favoritado' : 'Favoritar'}

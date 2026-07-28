@@ -73,6 +73,21 @@ export function icon(name, cls = '') {
 /** Marca com "Tube" destacado em vermelho. Usada onde o nome aparece. */
 export const brandMark = () => '<span class="brand-mark"><i>Tube</i>Metrics</span>';
 
+/**
+ * Bandeira do Brasil em SVG.
+ *
+ * Emoji de bandeira (🇧🇷) NÃO renderiza no Windows — o sistema exibe as letras
+ * "BR" no lugar. Como o público e o próprio autor estão em Windows, desenhar o
+ * SVG é a única forma de a bandeira aparecer em todo lugar.
+ */
+export const flagBR = (size = 16) => `
+  <svg viewBox="0 0 28 20" width="${size * 1.4}" height="${size}" class="flag-br" aria-label="Brasil" role="img">
+    <rect width="28" height="20" rx="2.5" fill="#009b3a"/>
+    <path d="M14 2.6 25.2 10 14 17.4 2.8 10z" fill="#fedf00"/>
+    <circle cx="14" cy="10" r="4.2" fill="#002776"/>
+    <path d="M9.9 8.7a12 12 0 0 1 8.2 2.2" stroke="#fff" stroke-width="1.15" fill="none"/>
+  </svg>`;
+
 export const qs = (sel, root = document) => root.querySelector(sel);
 export const qsa = (sel, root = document) => [...root.querySelectorAll(sel)];
 
