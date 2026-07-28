@@ -11,6 +11,9 @@ documentada em [`assets/js/engine.js`](assets/js/engine.js).
 
 > **Para colocar no ar com dados reais, siga o [SETUP.md](SETUP.md)** — passo a passo de
 > 20 minutos, cobrindo tudo que funciona sem depender da aprovação do Google.
+>
+> **Para conectar um canal e ver receita, CTR e retenção, siga o
+> [CONECTAR-CANAL.md](CONECTAR-CANAL.md)** — configuração do OAuth e o que ainda falta implementar.
 
 ## Como rodar
 
