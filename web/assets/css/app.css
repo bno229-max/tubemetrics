@@ -152,6 +152,13 @@ svg { display: block; }
 
 /* Ícones inline: nunca encolhem num flex e têm tamanho por contexto. */
 .ico-svg { flex-shrink: 0; }
+
+/*
+ * flagBR() é colada dentro de texto (ex.: label da barra lateral), não como
+ * item direto de um flex container — sem isso, o reset `svg { display:
+ * block }` acima derruba a bandeira pra uma linha própria, embaixo do texto.
+ */
+.flag-br { display: inline-block; vertical-align: -2px; }
 .btn .ico-svg { width: 15px; height: 15px; }
 .btn-lg .ico-svg { width: 17px; height: 17px; }
 .chip .ico-svg { width: 12px; height: 12px; }

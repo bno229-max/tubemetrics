@@ -12,11 +12,9 @@
  * correto: no máximo uma visita fica desatualizada.
  */
 
-// v4: copy da hero, "Top 20" sem "canais" e reajuste de preço/limites do
-// Pro e Creator. Todo deploy que muda algo em `SHELL` precisa bumpar este
-// nome — senão quem já visitou o site antes fica preso na versão anterior
-// (stale-while-revalidate só atualiza o cache, não o que já foi servido).
-const CACHE = 'tubemetrics-v4';
+// v5: bandeira do "Top 20" alinhada ao lado do texto, ajustes de destaques
+// do Pro e remoção do parágrafo de texto da página de Planos.
+const CACHE = 'tubemetrics-v5';
 
 const SHELL = [
   './',

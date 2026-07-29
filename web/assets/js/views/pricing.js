@@ -15,8 +15,6 @@ export default async function pricing(root, _params, ctx) {
         <div class="top">
           <div>
             <h1>Planos</h1>
-            <p>O bloqueio de recursos é declarado em um único lugar no código (<code style="font-family:var(--mono);font-size:12.5px">plans.js</code>)
-               e consultado por toda a interface. Troque de plano aqui para ver os cadeados abrirem e fecharem em tempo real.</p>
           </div>
           <div class="actions"><span class="chip chip-brand">Plano atual: ${esc(PLAN_BY_ID[current].name)}</span></div>
         </div>
