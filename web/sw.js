@@ -12,11 +12,11 @@
  * correto: no máximo uma visita fica desatualizada.
  */
 
-// v2: exclui /api/** da interceptação (ver comentário no fetch handler).
-// A troca de nome força o `activate` a apagar o cache antigo, que já tinha
-// respostas de sessão presas — sem isso, o bug continuaria para quem já
-// usou o app antes desta correção.
-const CACHE = 'tubemetrics-v2';
+// v3: engajamento/radar por vídeo e novos preços de Starter/Pro (§ atualização
+// de julho/2026). Sem bumpar aqui, quem já tinha o v2 instalado ficava preso
+// nos ativos antigos por causa do stale-while-revalidate — exatamente o
+// "publiquei e não mudou nada" que este comentário já avisava.
+const CACHE = 'tubemetrics-v3';
 
 const SHELL = [
   './',
