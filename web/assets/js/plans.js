@@ -39,8 +39,8 @@ export const FEATURES = {
  */
 export const LIMITS = {
   free:    { searchesPerMonth: 3,        favorites: 0,        comparisonSlots: 0,  connectedChannels: 0,  historyDays: 90,   seats: 1, topVideos: 10 },
-  starter: { searchesPerMonth: 80,       favorites: 5,        comparisonSlots: 2,  connectedChannels: 1,  historyDays: 730,  seats: 1, topVideos: 100 },
-  pro:     { searchesPerMonth: 180,      favorites: 15,       comparisonSlots: 5,  connectedChannels: 5,  historyDays: 1095, seats: 5, topVideos: Infinity },
+  starter: { searchesPerMonth: 50,       favorites: 5,        comparisonSlots: 2,  connectedChannels: 1,  historyDays: 730,  seats: 1, topVideos: 100 },
+  pro:     { searchesPerMonth: 150,      favorites: 15,       comparisonSlots: 5,  connectedChannels: 5,  historyDays: 1095, seats: 5, topVideos: Infinity },
   // Creator entrega os mesmos benefícios do Pro, mudando só a escala de canais.
   creator: { searchesPerMonth: Infinity, favorites: Infinity, comparisonSlots: 10, connectedChannels: 15, historyDays: 1095, seats: 5, topVideos: Infinity },
 };
@@ -68,8 +68,8 @@ export const PLANS = [
     tagline: 'Para quem publica toda semana e decide com dado.',
     highlights: [
       'Tudo do plano Grátis',
-      '80 análises de canal por mês',
-      'Histórico completo e relatórios detalhados',
+      '50 análises de canal por mês',
+      '1 canal conectado',
       'Consultor de dados: melhor horário, duração e frequência',
       'Comparação de até 2 canais',
       'Até 5 canais favoritos',
@@ -82,11 +82,11 @@ export const PLANS = [
   {
     id: 'pro',
     name: 'Pro',
-    price: 179.9,
+    price: 147.9,
     tagline: 'Para redes de canais, agências e times.',
     highlights: [
       'Tudo do plano Starter',
-      '180 análises de canal por mês',
+      '150 análises de canal por mês',
       '5 canais conectados (gestão de rede)',
       'Comparação de até 5 canais',
       'Até 15 canais favoritos',

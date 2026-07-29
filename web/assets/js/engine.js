@@ -217,6 +217,67 @@ export function rankVideos(videos, metric = 'views', limit = 10) {
     .slice(0, limit);
 }
 
+/**
+ * FAIXA DE ENGAJAMENTO (baixo / médio / alto)
+ * ---------------------------------------------------------------------------
+ * Taxa = (curtidas + comentários) ÷ views — três números públicos, sem nada
+ * estimado. O corte entre faixas reaproveita o MESMO ponto de referência já
+ * usado em `channelScore()` (a nota de engajamento satura em 4,5%, ali
+ * comentado como o valor que já indica um canal saudável). Em vez de inventar
+ * um segundo critério, este cruzamento só adiciona um piso abaixo dele:
+ *
+ *   Baixo   < 1,5%   (um terço do ponto de saturação)
+ *   Médio   1,5% – 4,5%
+ *   Alto    ≥ 4,5%
+ *
+ * É uma classificação aproximada de propósito — a interface sempre expõe a
+ * taxa exata ao lado do rótulo, para quem quiser o número em vez da etiqueta.
+ */
+export function engagementTier(video) {
+  const rate = video.views ? ((video.likes || 0) + (video.comments || 0)) / video.views : 0;
+  const tier = rate >= 0.045 ? 'alto' : rate >= 0.015 ? 'medio' : 'baixo';
+  return { rate, tier };
+}
+
+/**
+ * SCORE DE PERFORMANCE DE UM VÍDEO (para o radar)
+ * ---------------------------------------------------------------------------
+ * Cinco eixos, cada um uma razão pública normalizada para uma escala 0–100.
+ * Nenhum eixo é um número absoluto — todos comparam o vídeo contra alguma
+ * referência (o próprio total de views, a mediana do canal, ou a base de
+ * inscritos), porque "150 curtidas" não diz nada sozinho, mas "150 curtidas
+ * para 3 mil views" diz.
+ *
+ *   Curtidas    likes ÷ views,           teto de referência 8%
+ *   Comentários comments ÷ views,        teto de referência 2% (é naturalmente mais raro que curtir)
+ *   Engajamento (likes+comments) ÷ views, teto de referência 10%
+ *   Alcance     views ÷ mediana do canal, teto 3× (o vídeo típico = 33 pontos)
+ *   Viralidade  views ÷ inscritos,        teto 1× (viu tanta gente quanto a base inteira de inscritos)
+ *
+ * Os tetos são pontos de saturação, não limites — passar do teto só satura a
+ * escala em 100, não gera erro nem corta o dado.
+ */
+export function videoPerformanceRadar(video, { medianViews = video.views, subscribers = 0 } = {}) {
+  const views = video.views || 0;
+  const pct100 = (value, ceiling) => Math.round(clamp(value / ceiling, 0, 1) * 100);
+
+  const likeRate = views ? (video.likes || 0) / views : 0;
+  const commentRate = views ? (video.comments || 0) / views : 0;
+  const engRate = views ? ((video.likes || 0) + (video.comments || 0)) / views : 0;
+  const reachRatio = medianViews ? views / medianViews : 0;
+  const viralRatio = subscribers ? views / subscribers : 0;
+
+  return {
+    axes: [
+      { label: 'Curtidas', value: pct100(likeRate, 0.08), raw: likeRate },
+      { label: 'Comentários', value: pct100(commentRate, 0.02), raw: commentRate },
+      { label: 'Alcance', value: pct100(reachRatio, 3), raw: reachRatio },
+      { label: 'Viralidade', value: pct100(viralRatio, 1), raw: viralRatio },
+      { label: 'Engajamento', value: pct100(engRate, 0.1), raw: engRate },
+    ],
+  };
+}
+
 /* ==========================================================================
    3. Consultor de dados — os cruzamentos que viram resposta pronta
    ========================================================================== */

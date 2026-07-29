@@ -4,12 +4,12 @@ import { getPublicReport } from '../api.js';
 import {
   icon, avatar, kpi, insightCard, sectionCard, segment, videoCell, barCell, gate, toast, emptyState,
 } from '../ui.js';
-import { lineChart, barChart, hBarChart, donutChart, scoreDial, SERIES_COLORS } from '../charts.js';
+import { lineChart, barChart, hBarChart, donutChart, scoreDial, radarChart, SERIES_COLORS } from '../charts.js';
 import {
   esc, compact, int, dec, pct, money, money0, compactMoney, duration, dateLong,
   monthLabel, relativeDays, WEEKDAYS, hourLabel, listPt,
 } from '../format.js';
-import { estimateEarnings, recentViewsByFormat, RPM_PRESETS } from '../engine.js';
+import { estimateEarnings, recentViewsByFormat, RPM_PRESETS, engagementTier, videoPerformanceRadar } from '../engine.js';
 import { can, limitOf, requiredPlan, PLAN_BY_ID } from '../plans.js';
 import { ensureLead } from './signup.js';
 import * as store from '../store.js';
@@ -143,6 +143,11 @@ function tabOverview(host, ch, a, ctx) {
   const monthly = a.monthly;
   const fmt = a.format;
   const plan = store.get().plan;
+  const topVideo = a.videos.length ? [...a.videos].sort((x, y) => y.views - x.views)[0] : null;
+  const engTier = topVideo ? engagementTier(topVideo) : null;
+  const radar = topVideo
+    ? videoPerformanceRadar(topVideo, { medianViews: vpv.median, subscribers: ch.statistics.subscriberCount })
+    : null;
 
   host.innerHTML = `
     <div class="grid g4">
@@ -179,6 +184,27 @@ function tabOverview(host, ch, a, ctx) {
         </div>`,
       })}
     </div>
+
+    ${topVideo ? `
+    <div class="section grid g-2-1">
+      ${sectionCard({
+        title: 'Vídeo em destaque',
+        sub: 'O vídeo com mais views do canal, contra as referências do próprio canal',
+        body: `${videoCell(topVideo, 1)}
+          <div class="grid g4" style="gap:12px;margin-top:16px">
+            ${miniStat('Views', compact(topVideo.views))}
+            ${miniStat('Curtidas', compact(topVideo.likes || 0))}
+            ${miniStat('Comentários', compact(topVideo.comments || 0))}
+            ${miniStat('Engajamento', `${engTier.tier === 'alto' ? 'Alto' : engTier.tier === 'medio' ? 'Médio' : 'Baixo'}`, engTier.tier === 'alto' ? 'pos' : engTier.tier === 'medio' ? 'warn' : 'neg')}
+          </div>
+          <p class="muted fs12" style="margin-top:12px">Taxa de engajamento (curtidas + comentários ÷ views): <b>${pct(engTier.rate * 100, 1)}</b>.</p>`,
+      })}
+      ${sectionCard({
+        title: 'Score de performance',
+        sub: 'Cinco eixos, cada um comparado contra a mediana do canal ou a base de inscritos',
+        body: `<div class="chart" data-chart="radar"></div>`,
+      })}
+    </div>` : ''}
 
     <div class="section">
       <div class="section-head">
@@ -256,6 +282,10 @@ function tabOverview(host, ch, a, ctx) {
   });
 
   scoreDial(host.querySelector('[data-dial]'), { value: a.score.total });
+
+  if (radar) {
+    radarChart(host.querySelector('[data-chart="radar"]'), { series: [radar.axes] });
+  }
 
   donutChart(host.querySelector('[data-chart="format"]'), {
     data: [
@@ -364,9 +394,13 @@ function tabContent(host, ch, a, ctx) {
       <table class="tbl">
         <thead><tr>
           <th>Vídeo</th><th class="n">Publicado</th><th class="n">Duração</th>
-          <th class="n">Views</th><th class="n">Inscritos</th><th class="n">Retenção</th><th class="n">${esc(RANK_METRICS.find((m) => m.value === metric).label)}</th>
+          <th class="n">Views</th><th class="n">Inscritos</th><th class="n">Retenção</th><th class="n">Engajamento</th><th class="n">${esc(RANK_METRICS.find((m) => m.value === metric).label)}</th>
         </tr></thead>
-        <tbody>${rows.map((v, i) => `
+        <tbody>${rows.map((v, i) => {
+          const et = engagementTier(v);
+          const etClass = et.tier === 'alto' ? 'chip-pos' : et.tier === 'medio' ? 'chip-warn' : 'chip-neg';
+          const etLabel = et.tier === 'alto' ? 'Alto' : et.tier === 'medio' ? 'Médio' : 'Baixo';
+          return `
           <tr>
             <td>${videoCell(v, i + 1)}</td>
             <td class="n muted">${relativeDays(v.publishedAt)}</td>
@@ -374,8 +408,10 @@ function tabContent(host, ch, a, ctx) {
             <td class="n">${compact(v.views)}</td>
             <td class="n">${compact(v.subsGained)}</td>
             <td class="n">${pct(v.avgViewPct, 0)}</td>
+            <td class="n"><span class="chip ${etClass}" title="${pct(et.rate * 100, 1)}">${etLabel}</span></td>
             <td class="n">${barCell(v[metric] ?? 0, max, fmtCell)}</td>
-          </tr>`).join('')}
+          </tr>`;
+        }).join('')}
         </tbody>
       </table>
       ${cap !== Infinity && a.videos.length > cap ? `

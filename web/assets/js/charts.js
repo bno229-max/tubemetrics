@@ -401,6 +401,106 @@ export function donutChart(container, o) {
 }
 
 /* ==========================================================================
+   Radar (score de performance de um vídeo)
+   ========================================================================== */
+
+/**
+ * @param {object} o
+ * @param {{label:string, value:number}[][]} o.series  cada item é um conjunto
+ *   de eixos (mesma ordem/rótulos) — um vídeo por série, para permitir
+ *   sobrepor "este vídeo" contra "média do canal", por exemplo.
+ * @param {string[]} [o.names]  nome de cada série, para a legenda/tooltip.
+ */
+export function radarChart(container, o) {
+  const { series, names = [], size = 260, max = 100, rings = 4 } = o;
+  container.classList.add('chart');
+
+  return mount(container, (w, tip) => {
+    const s = Math.min(size, w);
+    const pad = 34; // espaço para os rótulos dos eixos
+    const r = s / 2 - pad;
+    const cx = w / 2;
+    const cy = s / 2;
+    const axes = series[0] || [];
+    const n = axes.length;
+    const colors = SERIES_COLORS();
+
+    // Ângulo do eixo i: começa no topo (-90°) e distribui em sentido horário.
+    const angle = (i) => -Math.PI / 2 + (i / n) * Math.PI * 2;
+    const point = (i, value) => {
+      const a = angle(i);
+      const dist = (clampRadar(value, 0, max) / max) * r;
+      return [cx + dist * Math.cos(a), cy + dist * Math.sin(a)];
+    };
+
+    const svg = el('svg', { viewBox: `0 0 ${w} ${s}`, width: w, height: s });
+
+    // Anéis de referência + eixos, do centro até a borda.
+    for (let ring = 1; ring <= rings; ring++) {
+      const frac = ring / rings;
+      const pts = axes.map((_, i) => {
+        const a = angle(i);
+        return `${cx + r * frac * Math.cos(a)},${cy + r * frac * Math.sin(a)}`;
+      });
+      svg.appendChild(el('polygon', { points: pts.join(' '), fill: 'none', stroke: cssVar('--border', '#e4e6ea'), 'stroke-width': 1 }));
+    }
+    axes.forEach((axis, i) => {
+      const [x, y] = point(i, max);
+      svg.appendChild(el('line', { x1: cx, y1: cy, x2: x, y2: y, stroke: cssVar('--border', '#e4e6ea'), 'stroke-width': 1 }));
+
+      // Rótulo do eixo, ancorado para fora do círculo.
+      const a = angle(i);
+      const lx = cx + (r + 20) * Math.cos(a);
+      const ly = cy + (r + 20) * Math.sin(a);
+      const anchor = Math.cos(a) > 0.3 ? 'start' : Math.cos(a) < -0.3 ? 'end' : 'middle';
+      const label = el('text', { class: 'axis-txt', x: lx, y: ly + 4, 'text-anchor': anchor, style: 'font-size:11.5px;font-weight:560' });
+      label.setAttribute('fill', cssVar('--text-2', '#4d5563'));
+      label.textContent = axis.label;
+      svg.appendChild(label);
+    });
+
+    // Um polígono por série, com a mesma camada de hover das outras cartas.
+    const dotsAll = [];
+    series.forEach((axesSet, si) => {
+      const color = names.length > 1 ? colors[si % colors.length] : cssVar('--s1', '#ff0033');
+      const pts = axesSet.map((axis, i) => point(i, axis.value));
+      svg.appendChild(el('polygon', {
+        points: pts.map(([x, y]) => `${x},${y}`).join(' '),
+        fill: color, 'fill-opacity': names.length > 1 ? 0.14 : 0.16,
+        stroke: color, 'stroke-width': 2, 'stroke-linejoin': 'round',
+      }));
+      pts.forEach(([x, y], i) => {
+        const dot = el('circle', { cx: x, cy: y, r: 3.5, fill: color, stroke: cssVar('--surface', '#fff'), 'stroke-width': 1.5, style: 'cursor:pointer' });
+        dot.addEventListener('pointerenter', () => {
+          const box = svg.getBoundingClientRect();
+          const rows = series.map((set, sj) => `
+            <div class="tr"><span class="l">${names[sj] ? `<i style="background:${names.length > 1 ? colors[sj % colors.length] : cssVar('--s1', '#ff0033')}"></i>${names[sj]}` : ''}</span>
+            <b>${set[i].raw != null ? formatAxisValue(set[i].raw) : `${set[i].value}/100`}</b></div>`).join('');
+          positionTip(tip, container, x * (box.width / w), y * (box.height / s) - 8, `<div class="th">${axesSet[i].label}</div>${rows}`);
+        });
+        dot.addEventListener('pointerleave', () => tip.classList.remove('on'));
+        dotsAll.push(dot);
+      });
+    });
+    dotsAll.forEach((d) => svg.appendChild(d));
+
+    const wrap = document.createElement('div');
+    wrap.style.display = 'flex';
+    wrap.style.justifyContent = 'center';
+    wrap.appendChild(svg);
+    container.appendChild(wrap);
+  });
+}
+
+const clampRadar = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
+/** Uma razão pequena vira "%", uma razão perto de 1 vira "×" — o que for mais legível. */
+function formatAxisValue(raw) {
+  if (raw <= 1.5) return `${(raw * 100).toFixed(1)}%`;
+  return `${raw.toFixed(2)}×`;
+}
+
+/* ==========================================================================
    Arco de pontuação (nota do canal)
    ========================================================================== */
 
