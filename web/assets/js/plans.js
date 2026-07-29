@@ -40,9 +40,9 @@ export const FEATURES = {
 export const LIMITS = {
   free:    { searchesPerMonth: 3,        favorites: 0,        comparisonSlots: 0,  connectedChannels: 0,  historyDays: 90,   seats: 1, topVideos: 10 },
   starter: { searchesPerMonth: 50,       favorites: 5,        comparisonSlots: 2,  connectedChannels: 1,  historyDays: 730,  seats: 1, topVideos: 100 },
-  pro:     { searchesPerMonth: 150,      favorites: 15,       comparisonSlots: 5,  connectedChannels: 5,  historyDays: 1095, seats: 5, topVideos: Infinity },
+  pro:     { searchesPerMonth: 120,      favorites: 15,       comparisonSlots: 5,  connectedChannels: 3,  historyDays: 1095, seats: 5, topVideos: Infinity },
   // Creator entrega os mesmos benefícios do Pro, mudando só a escala de canais.
-  creator: { searchesPerMonth: Infinity, favorites: Infinity, comparisonSlots: 10, connectedChannels: 15, historyDays: 1095, seats: 5, topVideos: Infinity },
+  creator: { searchesPerMonth: Infinity, favorites: Infinity, comparisonSlots: 10, connectedChannels: 10, historyDays: 1095, seats: 5, topVideos: Infinity },
 };
 
 export const PLANS = [
@@ -82,12 +82,12 @@ export const PLANS = [
   {
     id: 'pro',
     name: 'Pro',
-    price: 147.9,
+    price: 97.9,
     tagline: 'Para redes de canais, agências e times.',
     highlights: [
       'Tudo do plano Starter',
-      '150 análises de canal por mês',
-      '5 canais conectados (gestão de rede)',
+      '120 análises de canal por mês',
+      '3 canais conectados (gestão de rede)',
       'Comparação de até 5 canais',
       'Até 15 canais favoritos',
       '5 assentos para a equipe',
@@ -99,12 +99,12 @@ export const PLANS = [
   {
     id: 'creator',
     name: 'Creator',
-    price: 249.9,
+    price: 197.9,
     tagline: 'Para operações grandes, com muitos canais sob gestão.',
     highlights: [
       'Tudo do plano Pro',
       'Análises de canal ilimitadas',
-      '15 canais conectados',
+      '10 canais conectados',
       'Comparação de até 10 canais',
       'Favoritos ilimitados',
       'Suporte prioritário',

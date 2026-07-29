@@ -357,15 +357,15 @@ e `limitOf(plano, limite)`. Nenhuma tela decide sozinha o que mostrar.
 
 | | Grátis | Starter | Pro | Creator |
 | --- | --- | --- | --- | --- |
-| Preço/mês | R$ 0 | R$ 49,90 | R$ 147,90 | R$ 249,90 |
-| Análises de canal por mês | 3 | 50 | 150 | ilimitado |
+| Preço/mês | R$ 0 | R$ 49,90 | R$ 97,90 | R$ 197,90 |
+| Análises de canal por mês | 3 | 50 | 120 | ilimitado |
 | Análise pública + nota do canal | ✓ | ✓ | ✓ | ✓ |
 | Canais favoritos | — | 5 | 15 | ilimitado |
 | Canais em comparação | — | 2 | 5 | 10 |
 | Top 20 por inscritos | — | ✓ | ✓ | ✓ |
 | Melhor horário / frequência ideal | — | ✓ | ✓ | ✓ |
 | Dashboard do Criador + receita por vídeo | — | ✓ | ✓ | ✓ |
-| Canais conectados | 0 | 1 | 5 | 15 |
+| Canais conectados | 0 | 1 | 3 | 10 |
 | Assentos de equipe | 1 | 1 | 5 | 8 |
 | Exportação PDF/Excel | — | — | ✓ | ✓ |
 

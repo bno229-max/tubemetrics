@@ -34,7 +34,7 @@ const NAV = [
     group: 'Análise',
     items: [
       { id: 'descobrir', label: 'Descobrir canais', icon: 'search', href: '#/descobrir' },
-      { id: 'top', label: 'Top 20 canais', icon: 'trophy', href: '#/top', feature: 'top_channels', flag: true },
+      { id: 'top', label: 'Top 20', icon: 'trophy', href: '#/top', feature: 'top_channels', flag: true },
       { id: 'rankings', label: 'Rankings', icon: 'chart', href: '#/rankings', feature: 'rankings' },
       { id: 'comparar', label: 'Comparar canais', icon: 'compare', href: '#/comparar', feature: 'compare_channels' },
     ],

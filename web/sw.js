@@ -12,11 +12,11 @@
  * correto: no máximo uma visita fica desatualizada.
  */
 
-// v3: engajamento/radar por vídeo e novos preços de Starter/Pro (§ atualização
-// de julho/2026). Sem bumpar aqui, quem já tinha o v2 instalado ficava preso
-// nos ativos antigos por causa do stale-while-revalidate — exatamente o
-// "publiquei e não mudou nada" que este comentário já avisava.
-const CACHE = 'tubemetrics-v3';
+// v4: copy da hero, "Top 20" sem "canais" e reajuste de preço/limites do
+// Pro e Creator. Todo deploy que muda algo em `SHELL` precisa bumpar este
+// nome — senão quem já visitou o site antes fica preso na versão anterior
+// (stale-while-revalidate só atualiza o cache, não o que já foi servido).
+const CACHE = 'tubemetrics-v4';
 
 const SHELL = [
   './',

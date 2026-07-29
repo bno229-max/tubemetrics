@@ -39,8 +39,8 @@ export default async function landing(root, _params, ctx) {
         <div class="hero-inner">
           <span class="hero-badge">YouTube Analytics</span>
           <h1>Análise avançada para quem quer crescer no <em>YouTube</em>.</h1>
-          <p>Explore qualquer canal do YouTube em segundos. Ao conectar o seu, tenha acesso a métricas reais
-             de receita, retenção e CTR, calculadas por fórmulas transparentes e verificáveis.</p>
+          <p>Explore qualquer canal do YouTube em segundos. Ao conectar o seu, tenha acesso completo
+             as suas métricas de forma organizadas.</p>
 
           <form class="hero-search" data-search-form>
             <div class="search-wrap">
