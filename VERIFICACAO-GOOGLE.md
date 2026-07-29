@@ -10,28 +10,15 @@ As duas páginas exigidas já estão no ar:
 
 ---
 
-## Antes de submeter — preencha os placeholders
+## ✅ Dados legais já preenchidos
 
-Os dois documentos têm marcações em destaque (fundo amarelo) nos pontos que
-só você pode preencher:
-
-| Placeholder | O que colocar |
+| Campo | Valor |
 |---|---|
-| `nome legal / CNPJ, se houver` | Seu nome (pessoa física/MEI) ou razão social, se tiver empresa aberta |
-| `seu-email-de-suporte@dominio.com` | Um e-mail real que você monitora |
-| `sua cidade/comarca` (só em termos.html) | Sua cidade, para efeito de foro contratual |
+| Nome | Fabiano Ferreira de Souza |
+| E-mail de suporte | bno229@gmail.com |
+| Foro | Comarca de São Paulo/SP |
 
-Edite os arquivos `web/privacidade.html` e `web/termos.html` (procure por
-`class="placeholder"` no texto), depois:
-
-```bash
-git add web/privacidade.html web/termos.html
-git commit -m "Preenche dados legais nas paginas de privacidade e termos"
-git push
-```
-
-> Se preferir, posso fazer essa edição para você — é só me passar os três
-> valores.
+Já publicado nas duas páginas. Pode seguir direto para o passo 1.
 
 ---
 
@@ -41,7 +28,7 @@ Abra: **https://console.cloud.google.com/auth/branding**
 
 Confirme/preencha:
 - **Nome do app**: TubeMetrics
-- **E-mail de suporte ao usuário**: o mesmo e-mail do placeholder acima
+- **E-mail de suporte ao usuário**: bno229@gmail.com
 - **Logo do app**: opcional, mas ajuda a aprovação — pode usar o ícone em
   `web/icons/icon.svg` (exporte como PNG 120×120)
 - **Link da Política de Privacidade**: `https://tubemetrics.vercel.app/privacidade.html`
