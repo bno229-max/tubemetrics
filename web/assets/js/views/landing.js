@@ -101,7 +101,13 @@ export default async function landing(root, _params, ctx) {
         </div>
       </section>
 
-      <footer class="lp-foot">${brandMark()} · Criado por NCodexx</footer>
+      <footer class="lp-foot">
+        ${brandMark()} · Criado por NCodexx
+        <span style="margin:0 8px;opacity:.4">·</span>
+        <a href="./privacidade.html" style="text-decoration:underline">Privacidade</a>
+        <span style="margin:0 8px;opacity:.4">·</span>
+        <a href="./termos.html" style="text-decoration:underline">Termos de Uso</a>
+      </footer>
     </div>`;
 
   // Sugestões: canais reais de grande alcance, do mesmo ranking do Top 20.

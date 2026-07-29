@@ -58,7 +58,9 @@ export function ensureLead() {
           </label>
           <p class="muted fs12" style="margin-top:14px;line-height:1.5">
             ${icon('shield')} Usamos seus dados só para identificar sua conta e avisar sobre o produto.
-            Nesta versão eles ficam salvos apenas neste navegador.
+            Nesta versão eles ficam salvos apenas neste navegador. Ao continuar, você concorda com nossos
+            <a href="./termos.html" target="_blank" style="text-decoration:underline">Termos de Uso</a> e nossa
+            <a href="./privacidade.html" target="_blank" style="text-decoration:underline">Política de Privacidade</a>.
           </p>
           <button type="submit" hidden></button>
         </form>`,
