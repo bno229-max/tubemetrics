@@ -12,7 +12,11 @@
  * correto: no máximo uma visita fica desatualizada.
  */
 
-const CACHE = 'tubemetrics-v1';
+// v2: exclui /api/** da interceptação (ver comentário no fetch handler).
+// A troca de nome força o `activate` a apagar o cache antigo, que já tinha
+// respostas de sessão presas — sem isso, o bug continuaria para quem já
+// usou o app antes desta correção.
+const CACHE = 'tubemetrics-v2';
 
 const SHELL = [
   './',
@@ -61,7 +65,21 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const { request } = event;
-  if (request.method !== 'GET' || new URL(request.url).origin !== location.origin) return;
+  const url = new URL(request.url);
+  if (request.method !== 'GET' || url.origin !== location.origin) return;
+
+  /**
+   * `/api/**` nunca passa pelo cache do Service Worker.
+   *
+   * Cada rota de API já define sua própria política via `Cache-Control`
+   * (`no-store` para sessão/autenticação, `s-maxage` para dados públicos) — o
+   * SW interceptando por cima disso serve uma resposta velha ignorando essa
+   * política. Foi exatamente isso que quebrou o logout do Dashboard do
+   * Criador: depois de desconectar, `/api/analytics` continuava respondendo
+   * do cache com os dados da sessão antiga, e a tela nunca via o 401 que
+   * deveria trocá-la para "Conectar com o Google".
+   */
+  if (url.pathname.startsWith('/api/')) return;
 
   const store = (req, res) => {
     if (res && res.ok) {
