@@ -88,6 +88,23 @@ export const flagBR = (size = 16) => `
     <path d="M9.9 8.7a12 12 0 0 1 8.2 2.2" stroke="#fff" stroke-width="1.15" fill="none"/>
   </svg>`;
 
+/**
+ * Bandeira dos EUA no mesmo formato da brasileira (28×20, cantos arredondados).
+ * As 13 listras viram 7 vermelhas sobre fundo branco, que é o que se enxerga
+ * nesse tamanho — desenhar as 50 estrelas viraria um borrão cinza.
+ */
+export const flagUS = (size = 16) => `
+  <svg viewBox="0 0 28 20" width="${size * 1.4}" height="${size}" class="flag-br" aria-label="Estados Unidos" role="img">
+    <rect width="28" height="20" rx="2.5" fill="#fff"/>
+    ${[0, 1, 2, 3, 4, 5, 6].map((i) => `<rect y="${i * 3.08}" width="28" height="1.54" fill="#b22234"/>`).join('')}
+    <rect width="12" height="10.8" rx="1" fill="#3c3b6e"/>
+    ${[[2.4, 2.2], [5.2, 2.2], [8, 2.2], [3.8, 4.2], [6.6, 4.2], [2.4, 6.2], [5.2, 6.2], [8, 6.2], [3.8, 8.4], [6.6, 8.4]]
+      .map(([x, y]) => `<circle cx="${x}" cy="${y}" r=".62" fill="#fff"/>`).join('')}
+  </svg>`;
+
+/** Bandeira por código ISO — para telas que variam de país. */
+export const flagOf = (code, size = 16) => (code === 'US' ? flagUS(size) : flagBR(size));
+
 export const qs = (sel, root = document) => root.querySelector(sel);
 export const qsa = (sel, root = document) => [...root.querySelectorAll(sel)];
 

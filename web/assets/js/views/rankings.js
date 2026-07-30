@@ -72,7 +72,10 @@ export default async function rankings(root, _params, ctx) {
                   `<option value="${code}" ${code === region ? 'selected' : ''}>${esc(nome)}</option>`).join('')}
               </select>
             </label>
-            ${segment('periodo', PERIODOS, periodo)}
+            <label class="flex ac g8">
+              <span class="label" title="A alta do momento é sempre de agora; o período recorta o ranking de crescimento">Crescimento</span>
+              ${segment('periodo', PERIODOS, periodo)}
+            </label>
           </div>
         </div>
       </div>
@@ -121,7 +124,9 @@ export default async function rankings(root, _params, ctx) {
     if (!b) return;
     root.querySelectorAll('[data-segment="periodo"] button').forEach((x) => x.classList.toggle('on', x === b));
     periodo = b.dataset.value;
-    carregar();
+    // Só o crescimento depende do período — repintar a alta do momento seria
+    // piscar a tela inteira para mostrar exatamente os mesmos vídeos.
+    carregarCrescimento(body, Number(periodo), ctx);
   });
 
   body.addEventListener('click', async (e) => {
@@ -134,18 +139,29 @@ export default async function rankings(root, _params, ctx) {
 
 /* ------------------------------------------------- alta do momento (país) */
 
+/**
+ * @param {number} dias  Só rotula a seção de crescimento — ver comentário abaixo.
+ */
 function renderTrending(host, dados, dias, ctx) {
   const colors = SERIES_COLORS();
-  const corte = Date.now() - dias * 86400000;
 
-  const doPeriodo = dados.videos.filter((v) => new Date(v.publishedAt).getTime() >= corte);
-  const topVideos = (doPeriodo.length >= 3 ? doPeriodo : dados.videos)
-    .slice()
-    .sort((a, b) => b.views - a.views)
-    .slice(0, 10);
+  /*
+   * O filtro de período NÃO se aplica aqui, e insistir nele era enganoso.
+   *
+   * `mostPopular` devolve o que está em alta AGORA: numa medição real da lista
+   * do Brasil, o vídeo mais antigo tinha 14 dias e a mediana, 1 dia. Recortar
+   * essa lista por 7 / 30 / 365 dias devolvia praticamente o mesmo conjunto —
+   * o Top 10 saía IDÊNTICO nos três períodos, o que fazia o seletor parecer
+   * quebrado.
+   *
+   * Quem responde por período é `/api/growth`, que usa o histórico diário; o
+   * seletor continua valendo lá embaixo, na seção de crescimento.
+   */
+  const topVideos = dados.videos.slice().sort((a, b) => b.views - a.views).slice(0, 10);
 
-  const usouFallback = doPeriodo.length < 3;
-  const rotuloPeriodo = { 7: 'últimos 7 dias', 30: 'últimos 30 dias', 365: 'último ano' }[dias];
+  const recorte = dados.countryFiltered
+    ? `Somente canais de ${esc(dados.regionName)}${dados.filteredOut ? ` · ${int(dados.filteredOut)} de fora ocultados` : ''}`
+    : `Em alta em ${esc(dados.regionName)}`;
 
   host.innerHTML = `
     <div class="grid g3" style="margin-bottom:16px">
@@ -155,10 +171,8 @@ function renderTrending(host, dados, dias, ctx) {
     </div>
 
     ${sectionCard({
-      title: `Top 10 vídeos — ${rotuloPeriodo}`,
-      sub: usouFallback
-        ? `Nenhum vídeo em alta foi publicado ${rotuloPeriodo}; mostrando a lista completa de alta`
-        : `Publicados ${rotuloPeriodo}, ordenados por visualizações`,
+      title: 'Top 10 vídeos em alta agora',
+      sub: `${recorte} · ordenados por visualizações`,
       pad: false,
       body: tabelaVideos(topVideos),
     })}

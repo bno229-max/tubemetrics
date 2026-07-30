@@ -12,16 +12,16 @@ import * as store from '../store.js';
 const FEATURES = [
   { icon: 'target', t: 'Qual tema traz mais inscritos', d: 'Agrupamos seus vídeos por tema e ordenamos pela conversão real: inscritos por mil views, com correção estatística para amostras pequenas.' },
   { icon: 'clock', t: 'Melhor horário para publicar', d: 'Comparamos o desempenho das primeiras 48 h de cada envio anterior, neutralizando o crescimento do canal. Sai um mapa de calor 7 × 24.' },
-  { icon: 'ruler', t: 'A duração que funciona', d: 'Faixas de tempo ranqueadas por alcance, retenção e conversão — porque "melhor duração" depende do que você quer otimizar.' },
-  { icon: 'calendar', t: 'Frequência ideal', d: 'Cruzamos janelas de 28 dias entre ritmo de postagem e ganho líquido de inscritos para achar o ponto de retorno decrescente.' },
-  { icon: 'gauge', t: 'Nota de 0 a 100', d: 'Quatro pilares auditáveis: engajamento, consistência, crescimento e alcance. Cada ponto vem com a fórmula que o gerou.' },
-  { icon: 'money', t: 'Ganhos em faixa, não em chute', d: 'Conservador, médio e otimista sobre um RPM que você controla. Shorts entram com o pool separado, como na vida real.' },
+  { icon: 'ruler', t: 'A duração que funciona', d: 'Faixas de tempo ranqueadas por alcance, retenção e conversão.' },
+  { icon: 'calendar', t: 'Frequência ideal', d: 'Cruzamos janelas de 28 dias entre ritmo de postagem e ganho líquido de inscritos para achar o ponto de equilíbrio.' },
+  { icon: 'gauge', t: 'Nota de 0 a 100', d: 'Quatro pilares auditáveis: engajamento, consistência, crescimento e alcance.' },
+  { icon: 'money', t: 'Estimativas de Ganhos', d: 'Conservador, médio e otimista baseados em RPM de nicho com valores ajustáveis.' },
 ];
 
 const STEPS = [
-  { n: '1', t: 'Busque qualquer canal', d: 'Só dados públicos da YouTube Data API. Sem permissão do dono do canal.' },
-  { n: '2', t: 'Leia os cruzamentos', d: 'O motor roda dezenas de agrupamentos e devolve resposta pronta — não um gráfico para você interpretar.' },
-  { n: '3', t: 'Conecte seu canal', d: 'Com OAuth do Google, entram receita, RPM, CTR de miniatura, retenção e fontes de tráfego.' },
+  { n: '1', t: 'Busque qualquer canal', d: 'Amostra apenas dados públicos do YouTube Data API.' },
+  { n: '2', t: 'Leia os cruzamentos', d: 'O motor calcula agrupamentos e devolve respostas prontas.' },
+  { n: '3', t: 'Conecte seu canal', d: 'Com OAuth do Google, entram todas as métricas do seu canal — receita, RPM, CTR e outras — de forma organizada para análise.' },
 ];
 
 export default async function landing(root, _params, ctx) {

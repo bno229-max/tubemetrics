@@ -159,10 +159,10 @@ export async function listChannels() {
  * GET /api/top — ranking por inscritos de uma lista curada de canais reais.
  * Cai para o catálogo simulado quando o backend não está disponível.
  */
-export async function topChannels(limit = 20) {
+export async function topChannels(limit = 20, region = 'BR') {
   return withFallback(
     async () => {
-      const body = await request('/top', { limit });
+      const body = await request('/top', { limit, region });
       return body.channels;
     },
     async () => {

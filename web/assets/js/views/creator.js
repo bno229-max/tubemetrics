@@ -7,7 +7,7 @@ import {
   esc, compact, int, dec, pct, money, money0, compactMoney, duration, dateShort, watchHours,
 } from '../format.js';
 import { sum, mean, pctChange } from '../engine.js';
-import { can, limitOf, PLAN_BY_ID } from '../plans.js';
+import { can, limitOf, requiredPlan, PLAN_BY_ID } from '../plans.js';
 import * as store from '../store.js';
 
 const RANGES = [
@@ -139,10 +139,11 @@ export default async function creator(root, params, ctx) {
   root.querySelector('[data-export]').addEventListener('click', () => {
     const plan = store.get().plan;
     if (!can(plan, 'export_reports')) {
+      const req = PLAN_BY_ID[requiredPlan('export_reports')];
       modal({
-        title: 'Exportação é um recurso do plano Creator',
-        subtitle: 'Relatórios em PDF e Excel, além da API do TubeMetrics, entram no plano Creator.',
-        body: `<p class="txt-2 fs13">Seu plano atual é <b>${esc(PLAN_BY_ID[plan].name)}</b>. No Creator você também conecta até ${limitOf('creator', 'connectedChannels')} canais e libera ${limitOf('creator', 'seats')} assentos para a equipe.</p>`,
+        title: `Exportação é um recurso do plano ${req.name}`,
+        subtitle: 'Baixe o relatório do canal em Excel para trabalhar os números fora daqui.',
+        body: `<p class="txt-2 fs13">Seu plano atual é <b>${esc(PLAN_BY_ID[plan].name)}</b>. No ${esc(req.name)} você também conecta até ${limitOf(req.id, 'connectedChannels')} canais e compara até ${limitOf(req.id, 'comparisonSlots')} de uma vez.</p>`,
         actions: [{ label: 'Agora não' }, { label: 'Ver planos', primary: true, onClick: () => ctx.navigate('#/planos') }],
       });
       return;

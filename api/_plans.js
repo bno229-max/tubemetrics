@@ -16,7 +16,8 @@
  */
 
 export const LIMITS = {
-  free:    { searchesPerMonth: 3,        connectedChannels: 1,  comparisonSlots: 1 },
+  // Grátis não conecta canal nem compara: são recursos dos planos pagos.
+  free:    { searchesPerMonth: 3,        connectedChannels: 0,  comparisonSlots: 0 },
   starter: { searchesPerMonth: 50,       connectedChannels: 1,  comparisonSlots: 2 },
   pro:     { searchesPerMonth: 120,      connectedChannels: 3,  comparisonSlots: 5 },
   creator: { searchesPerMonth: Infinity, connectedChannels: 10, comparisonSlots: 10 },

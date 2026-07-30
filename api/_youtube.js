@@ -291,6 +291,28 @@ export async function fetchTrending(regionCode, apiKey, { maxResults = 50, categ
   }, {});
 
   const channels = Object.values(porCanal).sort((a, b) => b.views - a.views);
+
+  /*
+   * `mostPopular` responde "o que bombou NESTE país", e isso inclui canal de
+   * fora: trailer internacional, clipe de K-pop, futebol europeu. Para poder
+   * oferecer "só do país", anexamos o país declarado de cada canal — uma
+   * chamada a `channels.list` (1 unidade, até 50 ids por lote).
+   *
+   * Falhar aqui não pode derrubar o ranking: sem os países, todo mundo fica
+   * com `null` e o filtro simplesmente não recorta nada.
+   */
+  try {
+    const ids = channels.map((c) => c.id);
+    const stats = await fetchChannelStats(ids, apiKey);
+    const paisPorCanal = Object.fromEntries(stats.map((s) => [s.channelId, s.country]));
+
+    for (const c of channels) c.country = paisPorCanal[c.id] ?? null;
+    for (const v of videos) v.channelCountry = paisPorCanal[v.channelId] ?? null;
+  } catch {
+    for (const c of channels) c.country = null;
+    for (const v of videos) v.channelCountry = null;
+  }
+
   return { videos, channels };
 }
 
@@ -306,6 +328,9 @@ export async function fetchChannelStats(channelIds, apiKey) {
         title: c.snippet?.title || '',
         handle: c.snippet?.customUrl ? `@${c.snippet.customUrl.replace(/^@/, '')}` : '',
         thumbnail: c.snippet?.thumbnails?.default?.url || null,
+        // Declarado pelo dono do canal e frequentemente ausente — quem usa
+        // precisa tratar `null` como "não sabemos", não como "não é daqui".
+        country: c.snippet?.country || null,
         subscribers: num(c.statistics?.subscriberCount),
         views: num(c.statistics?.viewCount),
         videos: num(c.statistics?.videoCount),

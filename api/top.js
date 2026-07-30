@@ -54,6 +54,47 @@ const SEED_HANDLES = [
 ];
 
 /**
+ * Curadoria equivalente para os Estados Unidos. Mesmo critério da lista
+ * brasileira: alcance grande e nichos variados, para o ranking não virar uma
+ * lista só de música ou só de games.
+ */
+const SEED_HANDLES_US = [
+  // Entretenimento e criadores de alcance massivo
+  'MrBeast', 'mrbeast2', 'MrBeastGaming', 'sidemen', 'DudePerfect',
+  'markiplier', 'jacksepticeye', 'RyanTrahan', 'AirrackVlogs', 'ZHC',
+
+  // Infantil e família
+  'CoComelon', 'LikeNastyaofficial', 'Vlad_and_Niki', 'diana_kids_show',
+  'BLIPPI', 'RyansWorld',
+
+  // Games
+  'PewDiePie', 'DanTDM', 'Jacksfilms', 'Aphmau', 'preston', 'typicalgamer',
+
+  // Música
+  'justinbieber', 'EminemMusic', 'billieeilish', 'TaylorSwift', 'Maroon5',
+  'katyperry', 'onedirection',
+
+  // Ciência, educação e curiosidades
+  'veritasium', 'MarkRober', 'SmarterEveryDay', 'vsauce', 'kurzgesagt',
+  'TED', 'NatGeo', 'CrashCourse',
+
+  // Tecnologia
+  'mkbhd', 'LinusTechTips', 'UnboxTherapy',
+
+  // Culinária e estilo de vida
+  'BabishCulinaryUniverse', 'joshuaweissman', 'bonappetit',
+
+  // Notícias, talk shows e esportes
+  'NBA', 'WWE', 'jimmykimmellive', 'TheTonightShow', 'CNN',
+];
+
+/** As listas curadas por país. Cair fora daqui devolve 400, não uma lista vazia. */
+const LISTAS = {
+  BR: { handles: SEED_HANDLES, nome: 'Brasil' },
+  US: { handles: SEED_HANDLES_US, nome: 'Estados Unidos' },
+};
+
+/**
  * Piso de inscritos.
  *
  * Handle errado costuma resolver para um canal homônimo minúsculo — a primeira
@@ -71,9 +112,14 @@ export default async function handler(req, res) {
   if (!apiKey) return;
 
   const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 20));
+  const region = String(req.query.region || 'BR').toUpperCase();
+  const lista = LISTAS[region];
+  if (!lista) {
+    return fail(res, 400, 'badRegion', `Ranking não disponível para ${region}.`, { supported: Object.keys(LISTAS) });
+  }
 
   try {
-    const channels = await fetchChannelsByHandles(SEED_HANDLES, apiKey);
+    const channels = await fetchChannelsByHandles(lista.handles, apiKey);
 
     if (!channels.length) {
       return fail(res, 502, 'noChannels', 'Nenhum canal da lista pôde ser resolvido.');
@@ -97,10 +143,12 @@ export default async function handler(req, res) {
       res,
       200,
       {
+        region,
+        regionName: lista.nome,
         channels: ranked,
         total: ranked.length,
         resolved: channels.length,
-        requested: SEED_HANDLES.length,
+        requested: lista.handles.length,
         minSubscribers: MIN_SUBSCRIBERS,
         fetchedAt: new Date().toISOString(),
       },

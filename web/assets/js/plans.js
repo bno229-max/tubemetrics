@@ -12,29 +12,32 @@
 /**
  * Catálogo de recursos. `tiers` lista os planos que liberam o recurso.
  *
- * Grátis libera TODAS as features — a ideia é que quem ainda não paga
- * conheça o produto inteiro, não uma versão capada. O que trava o plano
- * Grátis não é o que ele pode abrir, é o teto de 3 análises vitalícias (ver
- * `LIMITS.free.searchesPerMonth` abaixo e `api/account.js`).
+ * O Grátis é uma amostra honesta, não o produto inteiro: entrega a análise
+ * pública completa de um canal (nota, estimativa de ganhos, favoritos) para
+ * a pessoa ver a qualidade do que sai daqui. O que ela paga para destravar
+ * são as ferramentas de rotina — consultor de dados, comparação, rankings e
+ * o Dashboard do Criador — além do volume de análises.
+ *
+ * Esta tabela e os `highlights` de cada plano em `PLANS` contam a mesma
+ * história de propósito: se divergirem, a matriz de recursos vira letra
+ * miúda contradizendo o card de venda.
  */
 export const FEATURES = {
   public_analysis:    { label: 'Análise pública de canais',             tiers: ['free', 'starter', 'pro', 'creator'] },
   channel_score:      { label: 'Nota geral do canal',                   tiers: ['free', 'starter', 'pro', 'creator'] },
   earnings_estimate:  { label: 'Estimativa de ganhos por faixa',        tiers: ['free', 'starter', 'pro', 'creator'] },
   favorites:          { label: 'Favoritar canais',                      tiers: ['free', 'starter', 'pro', 'creator'] },
-  history_full:       { label: 'Histórico completo (sem corte)',        tiers: ['free', 'starter', 'pro', 'creator'] },
-  advanced_insights:  { label: 'Consultor de dados completo',           tiers: ['free', 'starter', 'pro', 'creator'] },
-  best_time:          { label: 'Melhor horário para publicar',          tiers: ['free', 'starter', 'pro', 'creator'] },
-  ideal_frequency:    { label: 'Frequência ideal de postagem',          tiers: ['free', 'starter', 'pro', 'creator'] },
-  compare_channels:   { label: 'Comparação de canais',                  tiers: ['free', 'starter', 'pro', 'creator'] },
-  top_channels:       { label: 'Ranking Top 20 por inscritos',          tiers: ['free', 'starter', 'pro', 'creator'] },
-  rankings:           { label: 'Rankings globais e por país',            tiers: ['free', 'starter', 'pro', 'creator'] },
-  growth_alerts:      { label: 'Alertas de meta de crescimento',        tiers: ['free', 'starter', 'pro', 'creator'] },
-  creator_dashboard:  { label: 'Dashboard do Criador (dados privados)', tiers: ['free', 'starter', 'pro', 'creator'] },
-  revenue_per_video:  { label: 'Receita detalhada por vídeo',           tiers: ['free', 'starter', 'pro', 'creator'] },
-  multi_channel:      { label: 'Múltiplos canais (gestão de rede)',     tiers: ['free', 'pro', 'creator'] },
-  team_seats:         { label: 'Acesso para equipes',                   tiers: ['free', 'pro', 'creator'] },
-  export_reports:     { label: 'Exportação PDF / Excel',                tiers: ['free', 'pro', 'creator'] },
+  advanced_insights:  { label: 'Consultor de dados completo',           tiers: ['starter', 'pro', 'creator'] },
+  best_time:          { label: 'Melhor horário para publicar',          tiers: ['starter', 'pro', 'creator'] },
+  ideal_frequency:    { label: 'Frequência ideal de postagem',          tiers: ['starter', 'pro', 'creator'] },
+  compare_channels:   { label: 'Comparação de canais',                  tiers: ['starter', 'pro', 'creator'] },
+  top_channels:       { label: 'Ranking Top 20 por inscritos',          tiers: ['starter', 'pro', 'creator'] },
+  rankings:           { label: 'Rankings globais e por país',            tiers: ['starter', 'pro', 'creator'] },
+  growth_alerts:      { label: 'Alertas de meta de crescimento',        tiers: ['starter', 'pro', 'creator'] },
+  creator_dashboard:  { label: 'Dashboard do Criador (dados privados)', tiers: ['starter', 'pro', 'creator'] },
+  revenue_per_video:  { label: 'Receita detalhada por vídeo',           tiers: ['starter', 'pro', 'creator'] },
+  multi_channel:      { label: 'Múltiplos canais (gestão de rede)',     tiers: ['pro', 'creator'] },
+  export_reports:     { label: 'Exportação Excel',                      tiers: ['pro', 'creator'] },
 };
 
 /**
@@ -48,7 +51,10 @@ export const FEATURES = {
  * nunca reseta.
  */
 export const LIMITS = {
-  free:    { searchesPerMonth: 3,        favorites: 3,        comparisonSlots: 1,  connectedChannels: 1,  historyDays: 90,   seats: 1, topVideos: 10 },
+  // Comparação e canais conectados ficam em 0 no Grátis porque o recurso em
+  // si é dos planos pagos — um teto de 1 deixaria a tela abrir e travar logo
+  // depois, que é pior do que dizer de saída que é um recurso pago.
+  free:    { searchesPerMonth: 3,        favorites: 3,        comparisonSlots: 0,  connectedChannels: 0,  historyDays: 90,   seats: 1, topVideos: 10 },
   starter: { searchesPerMonth: 50,       favorites: 5,        comparisonSlots: 2,  connectedChannels: 1,  historyDays: 730,  seats: 1, topVideos: 100 },
   pro:     { searchesPerMonth: 120,      favorites: 15,       comparisonSlots: 5,  connectedChannels: 3,  historyDays: 1095, seats: 5, topVideos: Infinity },
   // Creator entrega os mesmos benefícios do Pro, mudando só a escala de canais.
@@ -60,15 +66,15 @@ export const PLANS = [
     id: 'free',
     name: 'Grátis',
     price: 0,
-    tagline: 'Conheça o produto inteiro antes de assinar.',
+    tagline: 'Para investigar um canal antes de decidir.',
     highlights: [
-      'Acesso a todos os recursos do sistema',
+      'Análise pública completa de canais',
       'Nota geral do canal (0–100)',
       'Estimativa de ganhos por faixa',
-      'Consultor de dados, comparação e Dashboard do Criador',
+      'Até 3 canais favoritos',
       '3 análises de canal vitalícias',
     ],
-    missing: ['Mais de 3 análises de canal'],
+    missing: ['Consultor de dados', 'Comparação entre canais', 'Rankings e Top 20', 'Dashboard do Criador'],
     cta: 'Começar grátis',
   },
   {
@@ -87,7 +93,7 @@ export const PLANS = [
       'Ranking Top 20 por inscritos',
       'Conecte seu canal: receita, CTR, retenção e RPM reais',
     ],
-    missing: ['Múltiplos canais e equipe', 'Exportação PDF/Excel'],
+    missing: ['Múltiplos canais conectados', 'Exportação Excel'],
     cta: 'Assinar Starter',
   },
   {

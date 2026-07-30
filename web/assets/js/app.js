@@ -8,7 +8,7 @@
  */
 
 import * as store from './store.js';
-import { icon, qs, brandMark, flagBR, toast } from './ui.js';
+import { icon, qs, brandMark, flagOf, toast } from './ui.js';
 import { redrawAll } from './charts.js';
 import { mountSearch } from './views/searchbox.js';
 import { can, PLAN_BY_ID } from './plans.js';
@@ -20,7 +20,8 @@ const ROUTES = [
   { path: /^#?\/?$/, shell: false, load: () => import('./views/landing.js'), title: 'Análise de canais do YouTube' },
   { path: /^#\/descobrir\/?$/, load: () => import('./views/discover.js'), nav: 'descobrir', title: 'Descobrir canais' },
   { path: /^#\/canal\/([^/]+)(?:\/([^/]+))?\/?$/, load: () => import('./views/public-report.js'), nav: 'descobrir', title: 'Relatório do canal', params: (m) => ({ id: m[1], tab: m[2] }) },
-  { path: /^#\/top\/?$/, load: () => import('./views/top.js'), nav: 'top', title: 'Top 20 canais brasileiros' },
+  { path: /^#\/top\/?$/, load: () => import('./views/top.js'), nav: 'top', title: 'Top 20 canais brasileiros', params: () => ({ regiao: 'BR' }) },
+  { path: /^#\/top\/us\/?$/, load: () => import('./views/top.js'), nav: 'top-us', title: 'Top 20 canais dos Estados Unidos', params: () => ({ regiao: 'US' }) },
   { path: /^#\/rankings\/?$/, load: () => import('./views/rankings.js'), nav: 'rankings', title: 'Rankings' },
   { path: /^#\/comparar\/?$/, load: () => import('./views/compare.js'), nav: 'comparar', title: 'Comparar canais' },
   // Tolerante a `?conectado=1` / `?erro=...`: o callback do OAuth do Google
@@ -36,7 +37,8 @@ const NAV = [
     group: 'Análise',
     items: [
       { id: 'descobrir', label: 'Descobrir canais', icon: 'search', href: '#/descobrir' },
-      { id: 'top', label: 'Top 20', icon: 'trophy', href: '#/top', feature: 'top_channels', flag: true },
+      { id: 'top', label: 'Top 20', icon: 'trophy', href: '#/top', feature: 'top_channels', flag: 'BR' },
+      { id: 'top-us', label: 'Top 20', icon: 'trophy', href: '#/top/us', feature: 'top_channels', flag: 'US' },
       { id: 'rankings', label: 'Rankings', icon: 'chart', href: '#/rankings', feature: 'rankings' },
       { id: 'comparar', label: 'Comparar canais', icon: 'compare', href: '#/comparar', feature: 'compare_channels' },
     ],
@@ -101,7 +103,7 @@ function paintNav(activeId) {
       ${g.items.map((it) => {
         const locked = it.feature && !can(s.plan, it.feature);
         return `<a class="nav-link${it.id === activeId ? ' active' : ''}${locked ? ' locked' : ''}" href="${it.href}">
-          ${icon(it.icon)}<span>${it.label}${it.flag ? ` ${flagBR(13)}` : ''}</span>${locked ? icon('lock', 'lock') : ''}
+          ${icon(it.icon)}<span>${it.label}${it.flag ? ` ${flagOf(it.flag, 13)}` : ''}</span>${locked ? icon('lock', 'lock') : ''}
         </a>`;
       }).join('')}
     </div>`).join('');

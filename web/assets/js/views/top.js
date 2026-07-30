@@ -1,7 +1,7 @@
 /** top.js — Ranking dos 20 maiores canais por inscritos. */
 
 import { topChannels } from '../api.js';
-import { avatar, icon, sectionCard, gate, emptyState, toast, flagBR } from '../ui.js';
+import { avatar, icon, sectionCard, gate, emptyState, toast, flagOf } from '../ui.js';
 import { ensureAuth } from './auth.js';
 import { hBarChart, SERIES_COLORS } from '../charts.js';
 import { esc, compact, int, dec, dateLong } from '../format.js';
@@ -52,13 +52,18 @@ function nichoPrincipal(c) {
   const t = (c.topicCategories || []).map(semQualificador);
   return traduzTopico(t.find((x) => !GENERICOS.has(x)) || t[0] || '—');
 }
-export default async function top(root, _params, ctx) {
+/** Países com lista curada em `api/top.js`. */
+const PAISES = { BR: 'Brasil', US: 'Estados Unidos' };
+
+export default async function top(root, params, ctx) {
   const s = store.get();
+  const regiao = PAISES[params?.regiao] ? params.regiao : 'BR';
+  const gentilico = regiao === 'BR' ? 'brasileiros' : 'norte-americanos';
 
   if (!can(s.plan, 'top_channels')) {
     const req = PLAN_BY_ID[requiredPlan('top_channels')];
     root.innerHTML = `<div class="page">
-      <div class="page-head"><h1 class="flex ac g8">Top 20 canais ${flagBR(20)}</h1>
+      <div class="page-head"><h1 class="flex ac g8">Top 20 canais ${flagOf(regiao, 20)}</h1>
       <p>Os maiores canais acompanhados pela plataforma, ordenados por inscritos reais.</p></div>
       ${gate(placeholder(), {
         plan: s.plan,
@@ -75,8 +80,8 @@ export default async function top(root, _params, ctx) {
       <div class="page-head">
         <div class="top">
           <div>
-            <h1 class="flex ac g8" style="flex-wrap:wrap">Top 20 canais por inscritos ${flagBR(22)}</h1>
-            <p>Canais brasileiros de grande alcance, ordenados pelos inscritos que a YouTube Data API
+            <h1 class="flex ac g8" style="flex-wrap:wrap">Top 20 canais por inscritos ${flagOf(regiao, 22)}</h1>
+            <p>Canais ${gentilico} de grande alcance, ordenados pelos inscritos que a YouTube Data API
                devolve agora. A API não tem ranking global — a lista de candidatos é curada por nós e
                revisada conforme o cenário muda.</p>
           </div>
@@ -88,7 +93,7 @@ export default async function top(root, _params, ctx) {
   const body = root.querySelector('[data-body]');
   let canais = [];
   try {
-    canais = await topChannels(20);
+    canais = await topChannels(20, regiao);
   } catch {
     canais = [];
   }

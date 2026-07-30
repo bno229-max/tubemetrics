@@ -39,8 +39,8 @@ export default async function discover(root, _params, ctx) {
       </div>
 
       <p class="muted fs13" style="margin-top:14px;max-width:520px;line-height:1.6">
-        ${icon('star')} Favorite um canal no relatório dele para salvá-lo em
-        <a href="#/comparar" style="text-decoration:underline">Seus canais</a>, onde você monta as comparações.
+        ${icon('star')} Favorite um canal para salvá-lo em
+        <a href="#/comparar" style="text-decoration:underline">Seus canais</a>.
       </p>
     </div>`;
 

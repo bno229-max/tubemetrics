@@ -48,14 +48,35 @@ export default async function handler(req, res) {
       return fail(res, 404, 'noTrending', `O YouTube não retornou vídeos em alta para ${REGIOES[region]}.`);
     }
 
+    /*
+     * "Em alta no Brasil" não é o mesmo que "brasileiro": a lista traz trailer
+     * internacional, clipe estrangeiro, futebol de fora. Aqui tiramos quem
+     * declara OUTRO país.
+     *
+     * Quem não declara país nenhum fica. É a parte importante: `country` é
+     * opcional no YouTube e muito canal legítimo não preenche — descartar
+     * esses seria jogar fora conteúdo local de verdade por falta de um campo
+     * que o dono nunca preencheu. Excluímos por evidência de que é de fora,
+     * nunca por ausência de evidência.
+     */
+    const doPais = (c) => !c || c === region;
+    const videosLocais = videos.filter((v) => doPais(v.channelCountry));
+    const canaisLocais = channels.filter((c) => doPais(c.country));
+
+    // Se sobrar quase nada, o recorte enganaria mais do que ajudaria.
+    const recorteUtil = videosLocais.length >= 5;
+
     return json(
       res,
       200,
       {
         region,
         regionName: REGIOES[region],
-        videos,
-        channels,
+        videos: recorteUtil ? videosLocais : videos,
+        channels: recorteUtil ? canaisLocais : channels,
+        // Quantos saíram por serem de fora — a tela explica o recorte.
+        filteredOut: recorteUtil ? videos.length - videosLocais.length : 0,
+        countryFiltered: recorteUtil,
         fetchedAt: new Date().toISOString(),
         // O front usa isto para rotular corretamente e não prometer histórico.
         basis: 'mostPopular',
