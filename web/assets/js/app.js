@@ -13,7 +13,6 @@ import { redrawAll } from './charts.js';
 import { mountSearch } from './views/searchbox.js';
 import { can, PLAN_BY_ID } from './plans.js';
 import { int, esc } from './format.js';
-import { fetchMe } from './api.js';
 
 /* ------------------------------------------------------------------ rotas */
 
@@ -275,26 +274,10 @@ store.subscribe(() => {
 store.applyTheme(store.get().theme);
 render();
 
-/**
- * Restaura a conta, se houver sessão salva.
- *
- * `hasStoredSession()` primeiro, para não baixar o SDK do Firebase na visita
- * de quem nunca logou. Depois `whenAuthReady()`, porque o SDK precisa validar
- * a sessão salva antes de `fetchMe()` ter um token para mandar.
- */
-(async () => {
-  const fb = await import('./firebase-auth.js');
-  if (!fb.hasStoredSession()) return;
-
-  await fb.whenAuthReady();
-  const me = await fetchMe();
-  if (!me) return;
-
-  if (me.user) store.setUser(me.user, me.quota);
-  // Autenticado, mas o cadastro parou no meio: `ensureAuth()` retoma no passo
-  // que falta em vez de mandar a pessoa fazer login de novo.
-  else if (me.needsProfile) store.set({ needsProfile: true });
-})().catch(() => {});
+// Restaura a conta salva. A mesma promessa memoizada que `ensureAuth()`
+// aguarda antes de decidir pedir login — por isso mora em `auth.js`, e não
+// aqui: duas hidratações independentes poderiam divergir.
+import('./views/auth.js').then(({ hydrateAccount }) => hydrateAccount());
 
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   window.addEventListener('load', () => {

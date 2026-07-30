@@ -12,11 +12,11 @@
  * correto: no máximo uma visita fica desatualizada.
  */
 
-// v7: contas no Firebase Authentication — `signup.js` saiu do SHELL, entraram
+// v8: contas no Firebase Authentication — `signup.js` saiu do SHELL, entraram
 // `auth.js` e `firebase-auth.js`. O SDK do Firebase vem de outro domínio
 // (gstatic.com) e por isso nem passa por aqui: o handler de fetch abaixo já
 // ignora tudo que não é da mesma origem.
-const CACHE = 'tubemetrics-v7';
+const CACHE = 'tubemetrics-v8';
 
 const SHELL = [
   './',

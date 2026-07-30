@@ -113,18 +113,55 @@ const SCREENS = {
 };
 
 /**
+ * Restaura a conta a partir da sessão salva no navegador. Memoizada: várias
+ * telas podem chamar à vontade que a rede só é tocada uma vez.
+ *
+ * `hasStoredSession()` primeiro para não baixar o SDK do Firebase na visita de
+ * quem nunca logou; `whenAuthReady()` depois, porque o SDK precisa validar a
+ * sessão antes de existir token para `fetchMe()` mandar.
+ */
+let hydration = null;
+
+export function hydrateAccount() {
+  if (hydration) return hydration;
+
+  hydration = (async () => {
+    // `firebase-auth.js` é leve por si só: o SDK do Firebase só é baixado
+    // dentro dele quando alguém de fato precisa autenticar.
+    if (!fb.hasStoredSession()) return;
+
+    await fb.whenAuthReady();
+    const me = await fetchMe();
+    if (!me) return;
+
+    if (me.user) store.setUser(me.user, me.quota);
+    // Autenticado, mas o cadastro parou no meio: `ensureAuth()` retoma no
+    // passo que falta em vez de mandar fazer login de novo.
+    else if (me.needsProfile) store.set({ needsProfile: true });
+  })().catch(() => {});
+
+  return hydration;
+}
+
+/**
  * Garante conta logada E perfil completo antes de seguir.
+ *
+ * O `await` na hidratação não é detalhe: o roteador dispara a view no mesmo
+ * instante em que o boot começa a restaurar a sessão, e sem esperar aqui quem
+ * abrisse um link direto de canal (ou desse F5 numa página de canal) veria o
+ * modal de login mesmo estando logado.
+ *
  * @returns {Promise<boolean>}
  */
-export function ensureAuth() {
+export async function ensureAuth() {
+  await hydrateAccount();
+
   const s = store.get();
-  if (s.user) return Promise.resolve(true);
+  if (s.user) return true;
 
   return new Promise((resolve) => {
     let done = false;
     const finish = (ok) => { if (!done) { done = true; resolve(ok); } };
-    // Quem já está autenticado no Firebase mas não tem perfil cai direto no
-    // passo que falta, em vez de ser mandado para o login de novo.
     open(s.needsProfile ? 'profile' : 'login', finish);
   });
 }
