@@ -37,21 +37,61 @@ const clean = (v) => (v || '').trim();
 const CACHE_CONFIG = 'public, s-maxage=3600, stale-while-revalidate=86400';
 
 /**
+ * Extrai a chave de `FIREBASE_WEB_API_KEY`.
+ *
+ * O Console do Firebase não mostra a chave sozinha: mostra o bloco de código
+ * `const firebaseConfig = { apiKey: "AIza...", authDomain: ... }` inteiro,
+ * com comentários. Colar isso direto na variável de ambiente é o caminho
+ * natural — e foi o que aconteceu aqui, resultando num `auth/invalid-api-key`
+ * de diagnóstico nada óbvio.
+ *
+ * Em vez de exigir que a pessoa recorte a string certa, aceitamos as duas
+ * formas: se o valor não é uma chave limpa, procuramos `apiKey: "..."` dentro
+ * dele. Mesmo espírito do `trim()` nas variáveis de OAuth em `_session.js`,
+ * onde uma quebra de linha invisível já custou uma sessão inteira de
+ * depuração.
+ */
+function extractApiKey(raw) {
+  const value = clean(raw);
+  if (!value) return '';
+  // Chaves do Google começam com "AIza" e não têm espaço — se já veio limpa,
+  // não há o que fazer.
+  if (/^AIza[\w-]+$/.test(value)) return value;
+
+  const match = value.match(/apiKey\s*:\s*["'`]([^"'`]+)["'`]/);
+  return match ? match[1].trim() : '';
+}
+
+/**
  * Config pública do Firebase. Estes valores não são segredo — a `apiKey` do
  * Firebase Web identifica o projeto e não autoriza nada sozinha (quem autoriza
  * são as regras do Firestore e a lista de domínios do console). Vêm de
  * variável de ambiente para o mesmo código servir qualquer projeto.
  */
 function firebaseConfig(res) {
-  const apiKey = clean(process.env.FIREBASE_WEB_API_KEY);
+  const rawKey = clean(process.env.FIREBASE_WEB_API_KEY);
+  const apiKey = extractApiKey(rawKey);
   const projectId = clean(process.env.FIREBASE_PROJECT_ID);
 
-  if (!apiKey || !projectId) {
+  if (!projectId) {
+    return fail(res, 503, 'firebaseAuthNotConfigured', 'Falta a variável FIREBASE_PROJECT_ID.');
+  }
+  if (!rawKey) {
     return fail(
       res,
       503,
       'firebaseAuthNotConfigured',
       'Falta a variável FIREBASE_WEB_API_KEY (Console do Firebase → Configurações do projeto → Seus apps → Web).'
+    );
+  }
+  if (!apiKey) {
+    // A variável existe mas não contém nada parecido com uma chave: dizer isso
+    // é muito mais útil que deixar o Firebase responder "invalid-api-key".
+    return fail(
+      res,
+      503,
+      'firebaseKeyMalformed',
+      'FIREBASE_WEB_API_KEY não parece uma chave válida. Use apenas o valor de apiKey (começa com "AIza"), ou cole o bloco firebaseConfig inteiro.'
     );
   }
 
