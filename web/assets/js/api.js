@@ -259,36 +259,43 @@ function stripPrivateFields(channel) {
  * fossem a receita real do usuário seria o pior tipo de mentira que este
  * produto poderia contar.
  */
-export async function getCreatorReport() {
+export async function getCreatorReport(channelId) {
   try {
-    const body = await request('/analytics', {});
+    const body = await accountRequest(
+      `/analytics${channelId ? `?channelId=${encodeURIComponent(channelId)}` : ''}`,
+      { method: 'GET' }
+    );
     return {
       channel: body.channel,
       analysis: analyze(body.channel, { withPrivate: true }),
       scope: 'private',
       source: 'live',
       fetchedAt: body.fetchedAt,
+      connectedChannels: body.connectedChannels || [],
+      activeChannelId: body.activeChannelId,
     };
   } catch (err) {
-    if (err.status === 401) return null; // não conectado, ou sessão expirou/foi revogada
+    if (err.status === 401) return null; // sem canal conectado, ou acesso revogado
     throw err;
   }
 }
 
 /**
- * Início do OAuth real, com PKCE. Precisa ser uma navegação de página inteira
- * — não um fetch — porque o Google exige que o próprio navegador do usuário
- * visite a tela de consentimento.
+ * Inicia a conexão de um canal.
+ *
+ * Duas etapas de propósito: primeiro um POST autenticado, que diz ao servidor
+ * DE QUEM será o canal (uma navegação de página inteira não carregaria o
+ * token do Firebase); depois a navegação para a URL de consentimento que ele
+ * devolve, porque o Google exige que o próprio navegador visite aquela tela.
  */
-export function startGoogleConnect() {
-  location.href = `${CONFIG.apiBase}/auth/start`;
+export async function startGoogleConnect() {
+  const { url } = await accountRequest('/auth/start', { payload: {} });
+  location.href = url;
 }
 
-/** Encerra a sessão no servidor: apaga o refresh token cifrado do Firestore. */
-export async function disconnectGoogleAccount() {
-  try {
-    await fetch(`${CONFIG.apiBase}/auth/logout`, { method: 'POST' });
-  } catch { /* best-effort — o cookie expira sozinho de qualquer forma */ }
+/** Desconecta um canal (ou todos, se `channelId` for omitido). */
+export async function disconnectGoogleAccount(channelId) {
+  return accountRequest('/auth/logout', { payload: channelId ? { channelId } : {} });
 }
 
 /* ---------------------------------------------------------------- conta */

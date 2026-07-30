@@ -11,7 +11,8 @@
  * `null`. O front-end (`analyze()` em engine.js) já sabe ler os dois formatos.
  */
 
-import { parseCookies, readSession, deleteSession, sessionStoreReady } from './_session.js';
+import { listConnections, readConnection, deleteConnection, sessionStoreReady } from './_session.js';
+import { verifyRequest } from './_auth.js';
 import { refreshAccessToken, fetchDailySeries, fetchVideoStats, fetchDimensions, OAuthError } from './_analytics.js';
 import { fetchChannelReport, YouTubeError } from './_youtube.js';
 import { json, fail, NO_CACHE } from './_http.js';
@@ -28,10 +29,29 @@ export default async function handler(req, res) {
     return fail(res, 503, 'sessionNotConfigured', 'Sessão de OAuth ainda não configurada neste servidor.');
   }
 
-  const cookies = parseCookies(req);
-  const session = await readSession(cookies.tm_session);
+  const account = await verifyRequest(req);
+  if (!account) return fail(res, 401, 'notLoggedIn', 'Faça login para ver seus canais.');
+
+  // Uma conta pode ter vários canais ligados (quantos, depende do plano). Sem
+  // `channelId` na query, abrimos o primeiro — e a lista completa vai junto na
+  // resposta para a interface montar o seletor sem uma segunda requisição.
+  const conexoes = await listConnections(account.uid);
+  if (!conexoes.length) {
+    return fail(res, 401, 'notConnected', 'Nenhum canal conectado nesta conta.');
+  }
+
+  const pedido = String(req.query.channelId || '').trim();
+  const escolhido = pedido
+    ? conexoes.find((c) => c.channelId === pedido)
+    : conexoes[0];
+
+  if (!escolhido) {
+    return fail(res, 404, 'channelNotConnected', 'Este canal não está conectado nesta conta.');
+  }
+
+  const session = await readConnection(account.uid, escolhido.channelId);
   if (!session) {
-    return fail(res, 401, 'notConnected', 'Nenhum canal conectado nesta sessão.');
+    return fail(res, 401, 'notConnected', 'A conexão com este canal expirou. Conecte novamente.');
   }
 
   const apiKey = process.env.YOUTUBE_API_KEY;
@@ -43,8 +63,8 @@ export default async function handler(req, res) {
   } catch (err) {
     if (err instanceof OAuthError && err.status === 400) {
       // invalid_grant: o usuário revogou o acesso no myaccount.google.com.
-      // A sessão está morta para sempre — apagar evita repetir essa falha.
-      await deleteSession(cookies.tm_session);
+      // A conexão está morta para sempre — apagar evita repetir essa falha.
+      await deleteConnection(account.uid, escolhido.channelId);
       return fail(res, 401, 'accessRevoked', 'O acesso a este canal foi revogado. Conecte novamente.');
     }
     console.error('Erro ao renovar o access token:', err);
@@ -91,6 +111,10 @@ export default async function handler(req, res) {
         channel,
         scope: 'private',
         fetchedAt: new Date().toISOString(),
+        // A lista completa vai junto para o seletor de canais ser montado sem
+        // uma segunda requisição, e `activeChannelId` diz qual está aberto.
+        connectedChannels: conexoes,
+        activeChannelId: escolhido.channelId,
         // Reflete o que de fato foi obtido: receita cai para false num canal
         // fora do Programa de Parcerias; CTR nunca é `true` (ver _analytics.js).
         capabilities: { subsPerVideo: true, early48h: false, retention: true, ctr: false, revenue: daily.monetized },

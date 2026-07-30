@@ -10,7 +10,7 @@ import {
   monthLabel, relativeDays, WEEKDAYS, hourLabel, listPt,
 } from '../format.js';
 import { estimateEarnings, recentViewsByFormat, RPM_PRESETS, engagementTier, videoPerformanceRadar } from '../engine.js';
-import { can, limitOf, requiredPlan, PLAN_BY_ID } from '../plans.js';
+import { can, limitOf, requiredPlan, PLAN_BY_ID, PLANS, planRank } from '../plans.js';
 import { ensureAuth } from './auth.js';
 import * as store from '../store.js';
 
@@ -62,7 +62,6 @@ export default async function publicReport(root, params, ctx) {
     return;
   }
 
-  store.pushHistory(report.channel);
 
   const { channel: ch, analysis: a } = report;
   const inCompare = store.get().compare.includes(id);
@@ -142,7 +141,10 @@ export default async function publicReport(root, params, ctx) {
       if (r.reason === 'plan') ctx.navigate('#/planos');
       return;
     }
-    toast(r.added ? `${ch.title} salvo nos favoritos` : `${ch.title} removido dos favoritos`, 'success');
+    toast(
+      r.added ? `${ch.title} salvo em Seus canais — use em Comparar canais` : `${ch.title} removido de Seus canais`,
+      'success'
+    );
     ctx.navigate(`#/canal/${id}/${tab}`);
   });
 }
@@ -870,22 +872,39 @@ function loadingSkeleton() {
     </div>`;
 }
 
+/**
+ * Duas situações diferentes, dois textos diferentes.
+ *
+ * No Grátis a cota não volta: a única saída é assinar. Num plano pago ela
+ * renova no mês que vem, e o resto do plano continua funcionando — dizer
+ * "assine um plano" para quem já assinou seria, além de errado, irritante.
+ */
 function quotaWall(quota) {
   const limit = quota?.limit ?? 3;
   const lifetime = quota?.lifetime ?? true;
-  return `<div class="page"><div class="card" style="padding:40px;text-align:center;max-width:520px;margin:40px auto">
+  const planName = PLAN_BY_ID[store.get().plan]?.name || 'Grátis';
+  const proximoPlano = PLANS.find((p) => planRank(p.id) > planRank(store.get().plan));
+
+  return `<div class="page"><div class="card" style="padding:40px;text-align:center;max-width:540px;margin:40px auto">
     <div style="width:44px;height:44px;border-radius:12px;background:var(--yt-soft);color:var(--yt-500);display:grid;place-items:center;margin:0 auto 16px">${icon('lock')}</div>
-    <h2 style="font-size:19px;font-weight:660;letter-spacing:-.02em">Você usou suas ${int(limit)} análises ${lifetime ? 'do plano Grátis' : 'deste mês'}</h2>
+    <h2 style="font-size:19px;font-weight:660;letter-spacing:-.02em">
+      ${lifetime
+        ? `Você usou suas ${int(limit)} análises do plano Grátis`
+        : `Você usou as ${int(limit)} análises do seu plano este mês`}
+    </h2>
     <p class="txt-2 fs13" style="margin-top:8px;line-height:1.55">
       ${lifetime
-        ? `O plano Grátis inclui ${int(limit)} análises vitalícias, pra conhecer o produto inteiro. Os canais que
-           você já analisou continuam abertos no histórico, sem consumir cota. Pra analisar novos canais, assine um plano.`
-        : `Seu plano permite ${int(limit)} ${limit === 1 ? 'canal' : 'canais'} por mês. Os que você já analisou continuam
-           abertos no histórico, sem consumir cota. A cota volta a zerar na virada do mês.`}
+        ? `O plano Grátis inclui ${int(limit)} análises, os canais favoritos continuam salvos sem consumir cota.
+           Para continuar analisando novos canais, assine um dos nossos planos.`
+        : `Sua cota de análises do plano ${esc(planName)} zerou. Todos os outros recursos do seu plano continuam
+           liberados — canais conectados, comparação, rankings e o Dashboard do Criador. A cota renova na virada
+           do mês${proximoPlano ? `, ou você pode subir para o ${esc(proximoPlano.name)} e voltar a analisar agora` : ''}.`}
     </p>
     <div class="flex g8" style="justify-content:center;margin-top:20px">
       <button class="btn" data-nav="#/descobrir">Voltar</button>
-      <button class="btn btn-primary" data-nav="#/planos">Ver planos ${icon('arrow')}</button>
+      <button class="btn btn-primary" data-nav="#/planos">
+        ${lifetime ? 'Ver planos' : proximoPlano ? `Fazer upgrade para ${esc(proximoPlano.name)}` : 'Ver planos'} ${icon('arrow')}
+      </button>
     </div>
   </div></div>`;
 }

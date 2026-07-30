@@ -28,9 +28,9 @@ export default async function compare(root, _params, ctx) {
     return;
   }
 
-  // Só canais já conhecidos entram na adição rápida — evita gastar uma análise
-  // com um canal que a pessoa nem chegou a abrir.
-  const conhecidos = dedupe([...(s.favorites || []), ...(s.history || [])]);
+  // "Seus canais" são os favoritos — este é o destino deles no produto.
+  // Favoritar num relatório é o que coloca um canal aqui.
+  const conhecidos = dedupe(s.favorites || []);
   const selected = s.compare;
 
   root.innerHTML = `
@@ -54,16 +54,20 @@ export default async function compare(root, _params, ctx) {
           <input class="input" type="search" placeholder="Buscar canal para comparar…" aria-label="Buscar canal" autocomplete="off" data-search-input>
         </div>
 
+        <div class="label" style="margin:16px 0 9px">Seus canais</div>
         ${conhecidos.length ? `
-          <div class="label" style="margin:16px 0 9px">Seus canais</div>
           <div class="flex g8 wrap">
-            ${conhecidos.slice(0, 12).map((c) => {
+            ${conhecidos.map((c) => {
               const on = selected.includes(c.id);
               return `<button class="btn btn-sm" data-toggle="${esc(c.id)}" style="gap:8px;${on ? 'border-color:var(--yt-500);background:var(--yt-soft)' : ''}">
                 ${avatar(c, 18)} ${esc(c.title)} ${on ? icon('close') : icon('plus')}
               </button>`;
             }).join('')}
-          </div>` : ''}
+          </div>`
+        : `<p class="muted fs13" style="line-height:1.6">
+             Nenhum canal salvo ainda. Abra o relatório de um canal e use
+             ${icon('star')} <b>Favoritar</b> — ele aparece aqui para você montar comparações.
+           </p>`}
       </div>
 
       <div data-body style="margin-top:22px"></div>
@@ -126,9 +130,12 @@ export default async function compare(root, _params, ctx) {
     } catch (err) {
       if (ctx.stale()) return;
       if (err.code === 'quotaExceeded') {
+        const vitalicia = store.get().quota?.lifetime ?? true;
         body.innerHTML = emptyState({
           title: 'Sua cota de análises acabou',
-          note: 'Assine um plano para continuar comparando novos canais.',
+          note: vitalicia
+            ? 'Assine um dos nossos planos para continuar analisando novos canais.'
+            : 'A cota do seu plano renova na virada do mês. Os canais já analisados continuam abertos.',
           iconName: 'lock',
           action: '<button class="btn btn-primary" data-nav="#/planos">Ver planos</button>',
         });
@@ -137,7 +144,6 @@ export default async function compare(root, _params, ctx) {
       toast(err.message, 'error');
       return;
     }
-    store.pushHistory(r.channel);
   }
 
   renderComparison(body, validos);

@@ -8,9 +8,11 @@
  */
 
 import {
-  parseCookies, setCookie, clearCookie, createSession, sessionStoreReady,
+  parseCookies, clearCookie, saveConnection, listConnections, sessionStoreReady,
   googleClientId, googleClientSecret, oauthRedirectUri,
 } from '../_session.js';
+import { findUserByUid } from '../_auth.js';
+import { channelLimit } from '../_plans.js';
 import { fetchOwnChannel } from '../_analytics.js';
 
 const APP_URL = (path) => {
@@ -52,13 +54,15 @@ export default async function handler(req, res) {
     // O próprio usuário cancelou o consentimento — não é uma falha do sistema.
     return redirectToApp(res, `erro=cancelado`);
   }
-  if (!code || !state || state !== cookies.oauth_state || !cookies.oauth_verifier) {
+  if (!code || !state || state !== cookies.oauth_state || !cookies.oauth_verifier || !cookies.oauth_uid) {
     // Cobre CSRF (state não bate) e cookie de PKCE expirado (10 min).
     return redirectToApp(res, 'erro=fluxo_invalido');
   }
 
+  const uid = cookies.oauth_uid;
   clearCookie(res, 'oauth_state');
   clearCookie(res, 'oauth_verifier');
+  clearCookie(res, 'oauth_uid');
 
   try {
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
@@ -89,15 +93,28 @@ export default async function handler(req, res) {
       return redirectToApp(res, 'erro=canal_nao_encontrado');
     }
 
-    const sessionId = await createSession({
+    const user = await findUserByUid(uid);
+    if (!user) return redirectToApp(res, 'erro=conta_nao_encontrada');
+
+    // O teto é conferido de novo aqui, e não só em `start.js`: entre iniciar
+    // o consentimento e voltar, o plano pode ter mudado ou outra aba pode ter
+    // conectado um canal. Reconectar um canal que já é seu não conta como
+    // novo — é só atualizar o token dele.
+    const jaConectados = await listConnections(uid);
+    const eNovo = !jaConectados.some((c) => c.channelId === channel.id);
+    if (eNovo && jaConectados.length >= channelLimit(user.plan)) {
+      return redirectToApp(res, 'erro=limite_de_canais');
+    }
+
+    await saveConnection({
+      uid,
       channelId: channel.id,
       channelTitle: channel.snippet?.title,
       channelHandle: channel.snippet?.customUrl ? `@${channel.snippet.customUrl.replace(/^@/, '')}` : '',
       refreshToken: tokens.refresh_token,
     });
 
-    setCookie(res, 'tm_session', sessionId, { maxAge: 60 * 60 * 24 * 30 }); // 30 dias
-    return redirectToApp(res, 'conectado=1');
+    return redirectToApp(res, `conectado=1&canal=${encodeURIComponent(channel.id)}`);
   } catch (err) {
     console.error('Erro no callback OAuth:', err);
     return redirectToApp(res, 'erro=interno');

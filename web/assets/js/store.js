@@ -30,8 +30,11 @@ const DEFAULTS = {
   quota: null,
   /** Autenticado no Firebase, mas ainda sem nome/telefone: falta o 1º acesso. */
   needsProfile: false,
-  /** Canais analisados, com dados de exibição para o histórico. */
-  history: [],
+  /**
+   * Canais salvos pelo usuário. Aparecem como "Seus canais" na tela de
+   * comparação — não existe mais histórico automático de pesquisa: salvar é
+   * uma decisão de quem usa, não um registro de tudo que passou pela tela.
+   */
   favorites: [],
   compare: [],
   rpmPreset: 'tech',
@@ -89,31 +92,6 @@ export function setUser(user, quota) {
 
 export function clearUser() {
   set({ user: null, quota: null, plan: 'free', needsProfile: false });
-}
-
-/* --------------------------------------------------- histórico de pesquisa */
-
-/**
- * Guarda o canal analisado. Mantém os dados de exibição (nome, foto, inscritos)
- * para que o histórico carregue sem gastar uma nova chamada de API.
- */
-export function pushHistory(channel) {
-  const entry = {
-    id: channel.id,
-    title: channel.title,
-    handle: channel.handle,
-    accent: channel.accent,
-    thumbnail: channel.thumbnail || null,
-    subscriberCount: channel.statistics?.subscriberCount ?? null,
-    videoCount: channel.statistics?.videoCount ?? null,
-    viewCount: channel.statistics?.viewCount ?? null,
-    at: new Date().toISOString(),
-  };
-  set((s) => ({ history: [entry, ...s.history.filter((h) => h.id !== channel.id)].slice(0, 24) }));
-}
-
-export function clearHistory() {
-  set({ history: [] });
 }
 
 /* ------------------------------------------------------------- favoritos */

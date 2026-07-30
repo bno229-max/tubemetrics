@@ -16,10 +16,10 @@
  */
 
 export const LIMITS = {
-  free:    { searchesPerMonth: 3 },
-  starter: { searchesPerMonth: 50 },
-  pro:     { searchesPerMonth: 120 },
-  creator: { searchesPerMonth: Infinity },
+  free:    { searchesPerMonth: 3,        connectedChannels: 1,  comparisonSlots: 1 },
+  starter: { searchesPerMonth: 50,       connectedChannels: 1,  comparisonSlots: 2 },
+  pro:     { searchesPerMonth: 120,      connectedChannels: 3,  comparisonSlots: 5 },
+  creator: { searchesPerMonth: Infinity, connectedChannels: 10, comparisonSlots: 10 },
 };
 
 export const PLAN_IDS = ['free', 'starter', 'pro', 'creator'];
@@ -27,3 +27,8 @@ export const PLAN_IDS = ['free', 'starter', 'pro', 'creator'];
 export const isValidPlan = (plan) => PLAN_IDS.includes(plan);
 
 export const searchLimit = (plan) => LIMITS[plan]?.searchesPerMonth ?? 0;
+
+/** Quantos canais do YouTube a conta pode manter conectados ao mesmo tempo. */
+export const channelLimit = (plan) => LIMITS[plan]?.connectedChannels ?? 0;
+
+export const compareLimit = (plan) => LIMITS[plan]?.comparisonSlots ?? 0;

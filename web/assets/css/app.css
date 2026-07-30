@@ -870,6 +870,24 @@ table.tbl tbody tr:hover { background: var(--surface-2); }
 }
 .suggest button:hover { border-color: var(--yt-500); color: var(--yt-600); background: var(--yt-soft); }
 
+/*
+ * Os atalhos de canal se revezam sozinhos. A troca é uma pulsação curta —
+ * some, encolhe 4% e volta — em vez de um corte seco: o movimento avisa que
+ * a lista mudou sem puxar a atenção de quem está lendo o resto da página.
+ */
+.suggest button.swap { animation: suggest-pulse .5s ease; }
+
+@keyframes suggest-pulse {
+  0%   { opacity: 1;   transform: scale(1); }
+  45%  { opacity: 0;   transform: scale(.96); }
+  100% { opacity: 1;   transform: scale(1); }
+}
+
+/* Quem pediu menos animação no sistema não recebe a pulsação. */
+@media (prefers-reduced-motion: reduce) {
+  .suggest button.swap { animation: none; }
+}
+
 .lp-section { padding: 56px 26px; max-width: 1120px; margin: 0 auto; width: 100%; }
 .lp-section h2 { font-size: clamp(23px, 3vw, 30px); font-weight: 690; letter-spacing: -0.032em; text-align: center; }
 .lp-section > p.lead { text-align: center; color: var(--text-2); margin: 11px auto 0; max-width: 60ch; font-size: 15px; }

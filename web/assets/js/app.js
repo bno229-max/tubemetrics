@@ -25,7 +25,9 @@ const ROUTES = [
   { path: /^#\/comparar\/?$/, load: () => import('./views/compare.js'), nav: 'comparar', title: 'Comparar canais' },
   // Tolerante a `?conectado=1` / `?erro=...`: o callback do OAuth do Google
   // volta para cá anexando o resultado do login como query no próprio hash.
-  { path: /^#\/criador\/?(?:\?.*)?$/, load: () => import('./views/creator.js'), nav: 'criador', title: 'Dashboard do Criador' },
+  // `?canal=` escolhe qual canal conectado abrir; `?conectado=1` / `?erro=`
+  // são o retorno do callback do OAuth do Google.
+  { path: /^#\/criador\/?(?:\?(.*))?$/, load: () => import('./views/creator.js'), nav: 'criador', title: 'Dashboard do Criador', params: (m) => ({ canal: new URLSearchParams(m[1] || '').get('canal') }) },
   { path: /^#\/planos\/?$/, load: () => import('./views/pricing.js'), nav: 'planos', title: 'Planos' },
 ];
 

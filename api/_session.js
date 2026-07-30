@@ -111,52 +111,77 @@ const base64url = (buf) => buf.toString('base64').replace(/\+/g, '-').replace(/\
 export const randomToken = (bytes = 32) => base64url(randomBytes(bytes));
 export const pkceChallenge = (verifier) => base64url(createHash('sha256').update(verifier).digest());
 
-/* --------------------------------------------------------------- sessão -- */
+/* ----------------------------------------------------------- conexões -- */
+
+/**
+ * Canais do YouTube conectados por uma conta.
+ *
+ *   connections/{uid}__{channelId}
+ *     { uid, channelId, channelTitle, channelHandle, refreshTokenEnc, createdAt }
+ *
+ * O id composto faz o trabalho pesado sozinho: reconectar o mesmo canal
+ * sobrescreve em vez de criar uma duplicata, e cada conta enxerga só os seus
+ * (`where('uid','==',uid)`, igualdade em campo simples, sem índice manual).
+ *
+ * Antes existia uma "sessão" por canal, apontada por um cookie — o que
+ * limitava a um canal por navegador. Agora que existe conta de verdade, a
+ * dona da conexão é ela, e os planos pagos podem ligar vários canais ao
+ * mesmo tempo (`connectedChannels` em `_plans.js`).
+ *
+ * Quem autentica o USUÁRIO é o Firebase Auth (ver `verifyRequest` em
+ * `_auth.js`); o refresh token guardado aqui é do Google e continua cifrado,
+ * porque dá acesso permanente à Analytics do canal.
+ */
 
 export const sessionStoreReady = () => firestoreReady() && sessionSecretReady();
 
-export async function createSession({ channelId, channelTitle, channelHandle, refreshToken }) {
+const connId = (uid, channelId) => `${uid}__${channelId}`;
+
+export async function saveConnection({ uid, channelId, channelTitle, channelHandle, refreshToken }) {
   const db = firestore();
   if (!db) throw new Error('Firestore não configurado.');
 
-  const sessionId = randomToken(24);
-  await db.collection('sessions').doc(sessionId).set({
+  await db.collection('connections').doc(connId(uid, channelId)).set({
+    uid,
     channelId,
     channelTitle: channelTitle || '',
     channelHandle: channelHandle || '',
     refreshTokenEnc: encrypt(refreshToken),
     createdAt: FieldValue.serverTimestamp(),
   });
-  return sessionId;
 }
 
-/** Devolve a sessão com o refresh token já decifrado, ou `null`. */
-export async function readSession(sessionId) {
+/** Metadados dos canais conectados — sem tokens, é o que a interface lista. */
+export async function listConnections(uid) {
   const db = firestore();
-  if (!db || !sessionId) return null;
+  if (!db || !uid) return [];
 
-  const doc = await db.collection('sessions').doc(sessionId).get();
+  const snap = await db.collection('connections').where('uid', '==', uid).get();
+  return snap.docs
+    .map((d) => d.data())
+    .map(({ channelId, channelTitle, channelHandle }) => ({ channelId, channelTitle, channelHandle }))
+    .sort((a, b) => (a.channelTitle || '').localeCompare(b.channelTitle || ''));
+}
+
+/** Uma conexão com o refresh token já decifrado, ou `null`. */
+export async function readConnection(uid, channelId) {
+  const db = firestore();
+  if (!db || !uid || !channelId) return null;
+
+  const doc = await db.collection('connections').doc(connId(uid, channelId)).get();
   if (!doc.exists) return null;
 
   const data = doc.data();
   try {
     return { ...data, refreshToken: decrypt(data.refreshTokenEnc) };
   } catch {
-    // SESSION_SECRET mudou desde que a sessão foi criada — trata como sessão morta.
+    // SESSION_SECRET mudou desde a gravação — trata como conexão morta.
     return null;
   }
 }
 
-export async function deleteSession(sessionId) {
+export async function deleteConnection(uid, channelId) {
   const db = firestore();
-  if (!db || !sessionId) return;
-  await db.collection('sessions').doc(sessionId).delete().catch(() => {});
+  if (!db || !uid || !channelId) return;
+  await db.collection('connections').doc(connId(uid, channelId)).delete().catch(() => {});
 }
-
-/*
- * Não há "sessão de conta" aqui de propósito: quem autentica o usuário é o
- * Firebase Authentication, e o navegador prova quem é mandando o ID token
- * dele em cada requisição (ver `verifyRequest` em `_auth.js`). As sessões
- * acima existem só para o canal do YouTube conectado via OAuth, que é outra
- * coisa — guardam um refresh token do Google que precisa ficar cifrado.
- */

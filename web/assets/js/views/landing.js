@@ -30,9 +30,9 @@ export default async function landing(root, _params, ctx) {
       <nav class="lp-nav">
         <div class="brand"><span class="logo-mark"></span><strong>${brandMark()}</strong></div>
         <div class="grow"></div>
-        <button class="btn btn-ghost btn-sm" data-nav="#/planos">Planos</button>
+        <button class="btn btn-ghost btn-sm" data-scroll-planos>Planos</button>
         <button class="btn btn-ghost btn-sm btn-icon" data-theme-toggle aria-label="Alternar tema">${icon('sun')}</button>
-        <button class="btn btn-sm" data-nav="#/descobrir">Entrar no painel</button>
+        <button class="btn btn-sm" data-entrar>Entrar Conta</button>
       </nav>
 
       <header class="hero">
@@ -79,7 +79,7 @@ export default async function landing(root, _params, ctx) {
         </div>
       </section>
 
-      <section class="lp-section" style="padding-top:0">
+      <section class="lp-section" style="padding-top:0" data-planos>
         <h2>Planos</h2>
         <p class="lead">Comece de graça. Suba quando fazer sentido pra você.</p>
         <div class="price-grid" style="margin-top:30px">
@@ -92,7 +92,7 @@ export default async function landing(root, _params, ctx) {
               <ul>
                 ${p.highlights.slice(0, 5).map((h) => `<li>${icon('checkSmall')}<span>${esc(h)}</span></li>`).join('')}
               </ul>
-              <button class="btn ${p.featured ? 'btn-primary' : ''}" data-nav="#/planos">${esc(p.cta)}</button>
+              <button class="btn ${p.featured ? 'btn-primary' : ''}" data-plano-cta>${esc(p.cta)}</button>
             </div>`).join('')}
         </div>
 
@@ -110,21 +110,7 @@ export default async function landing(root, _params, ctx) {
       </footer>
     </div>`;
 
-  // Sugestões: canais reais de grande alcance, do mesmo ranking do Top 20.
-  const sug = root.querySelector('[data-suggest]');
-  try {
-    const canais = await topChannels(5);
-    if (ctx.stale()) return;
-    for (const c of canais.slice(0, 5)) {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.innerHTML = `${avatar(c, 18)} ${esc(c.title)}`;
-      b.addEventListener('click', () => openChannel(ctx, c.id));
-      sug.appendChild(b);
-    }
-  } catch {
-    sug.remove();
-  }
+  mountRotatingSuggestions(root.querySelector('[data-suggest]'), ctx);
 
   const input = root.querySelector('[data-search-input]');
   mountSearch(input, (c) => openChannel(ctx, c.id));
@@ -142,9 +128,109 @@ export default async function landing(root, _params, ctx) {
     const t = store.toggleTheme();
     e.currentTarget.innerHTML = icon(t === 'dark' ? 'moon' : 'sun');
   });
+
+  // "Planos" agora rola até a seção desta mesma página, em vez de jogar
+  // alguém que ainda nem tem conta para dentro do painel.
+  root.querySelector('[data-scroll-planos]').addEventListener('click', () => {
+    rolarAte(root.querySelector('[data-planos]'));
+  });
+
+  // O painel exige conta: entrar e assinar passam pelo mesmo portão.
+  root.querySelector('[data-entrar]').addEventListener('click', () => enterApp(ctx));
+  root.querySelectorAll('[data-plano-cta]').forEach((b) =>
+    b.addEventListener('click', () => enterApp(ctx, '#/planos'))
+  );
+}
+
+/**
+ * Rola até um trecho da página, com pouso suave onde der.
+ *
+ * Nem todo ambiente honra `behavior: 'smooth'` — alguns simplesmente ignoram
+ * a chamada, e aí o botão não faz absolutamente nada, que é pior do que um
+ * salto seco. Se a posição não mudou logo depois, terminamos o trabalho na
+ * marra.
+ */
+function rolarAte(alvo) {
+  if (!alvo) return;
+  const destino = alvo.getBoundingClientRect().top + window.scrollY;
+  const partida = window.scrollY;
+
+  window.scrollTo({ top: destino, behavior: 'smooth' });
+  setTimeout(() => {
+    if (Math.abs(window.scrollY - partida) < 2) window.scrollTo(0, destino);
+  }, 250);
 }
 
 /** Cadastro é exigido antes de abrir qualquer relatório. */
 async function openChannel(ctx, id) {
   if (await ensureAuth()) ctx.navigate(`#/canal/${id}`);
+}
+
+/** Só entra no painel quem tem conta — o modal resolve login ou cadastro. */
+async function enterApp(ctx, destino = '#/descobrir') {
+  if (await ensureAuth()) ctx.navigate(destino);
+}
+
+/* ==========================================================================
+   Atalhos de canais que se revezam
+   ========================================================================== */
+
+/** Quantos atalhos cabem de uma vez, e de quanto em quanto tempo trocam. */
+const VISIVEIS = 5;
+const INTERVALO_MS = 3200;
+
+/**
+ * Busca um lote de canais e mostra `VISIVEIS` por vez, rodando a janela pela
+ * lista. Cada troca acontece num botão só, em cascata, para a linha inteira
+ * não piscar junto — e o timer morre quando a landing sai da tela.
+ */
+async function mountRotatingSuggestions(host, ctx) {
+  if (!host) return;
+
+  let canais;
+  try {
+    canais = await topChannels(10);
+  } catch {
+    host.remove(); // sem backend, some em vez de mostrar um esqueleto vazio
+    return;
+  }
+  if (ctx.stale() || !canais?.length) return;
+
+  const botoes = [];
+  for (let i = 0; i < Math.min(VISIVEIS, canais.length); i++) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    pintar(b, canais[i]);
+    b.addEventListener('click', () => openChannel(ctx, b.dataset.channelId));
+    host.appendChild(b);
+    botoes.push(b);
+  }
+
+  // Nada a revezar se o lote não é maior que a janela.
+  if (canais.length <= botoes.length) return;
+
+  let proximo = botoes.length;
+  let alvo = 0;
+
+  const timer = setInterval(() => {
+    // A landing foi desmontada (o roteador trocou de tela): para o timer.
+    if (!host.isConnected) return clearInterval(timer);
+
+    const b = botoes[alvo];
+    const canal = canais[proximo % canais.length];
+
+    b.classList.remove('swap');
+    void b.offsetWidth; // reinicia a animação mesmo trocando o mesmo botão
+    b.classList.add('swap');
+    // Troca no meio da pulsação, quando o botão está invisível.
+    setTimeout(() => pintar(b, canal), 220);
+
+    proximo++;
+    alvo = (alvo + 1) % botoes.length;
+  }, INTERVALO_MS);
+}
+
+function pintar(botao, canal) {
+  botao.dataset.channelId = canal.id;
+  botao.innerHTML = `${avatar(canal, 18)} ${esc(canal.title)}`;
 }

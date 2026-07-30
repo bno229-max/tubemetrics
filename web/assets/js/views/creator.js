@@ -43,9 +43,13 @@ export default async function creator(root, params, ctx) {
 
   root.innerHTML = `<div class="page"><div class="skel" style="height:420px;border-radius:14px"></div></div>`;
 
+  // Qual canal abrir: o pedido na URL, o que acabou de ser conectado, ou o
+  // primeiro da lista (o servidor decide quando não mandamos nada).
+  const canalPedido = params.canal || feedback.get('canal') || null;
+
   let report;
   try {
-    report = await getCreatorReport();
+    report = await getCreatorReport(canalPedido);
   } catch (err) {
     if (ctx.stale()) return;
     root.innerHTML = `<div class="page">${connectionErrorState(err)}</div>`;
@@ -57,6 +61,11 @@ export default async function creator(root, params, ctx) {
 
   const { channel: ch, analysis: a } = report;
   let range = Number(params.range || 28);
+
+  const canais = report.connectedChannels || [];
+  const ativo = report.activeChannelId || ch.id;
+  const tetoCanais = limitOf(st.plan, 'connectedChannels');
+  const podeConectarMais = canais.length < tetoCanais;
 
   root.innerHTML = `
     <div class="page">
@@ -76,6 +85,24 @@ export default async function creator(root, params, ctx) {
           </div>
         </div>
       </div>
+
+      ${canais.length > 1 || podeConectarMais ? `
+        <div class="card" style="padding:14px 16px;margin-bottom:20px">
+          <div class="flex ac wrap g8" style="justify-content:space-between">
+            <div class="flex ac wrap g8">
+              <span class="label" style="margin-right:4px">Seus canais</span>
+              ${canais.map((c) => `
+                <button class="btn btn-sm" data-canal="${esc(c.channelId)}"
+                  style="gap:7px;${c.channelId === ativo ? 'border-color:var(--yt-500);background:var(--yt-soft);color:var(--yt-600)' : ''}">
+                  ${c.channelId === ativo ? icon('check') : ''} ${esc(c.channelTitle || c.channelId)}
+                </button>`).join('')}
+            </div>
+            ${podeConectarMais
+              ? `<button class="btn btn-sm" data-add-channel>${icon('plus')} Conectar canal</button>`
+              : `<span class="muted fs12">${int(canais.length)} de ${int(tetoCanais)} canais do plano ${esc(PLAN_BY_ID[st.plan].name)}</span>`}
+          </div>
+        </div>` : ''}
+
       <div data-dash></div>
     </div>`;
 
@@ -91,10 +118,21 @@ export default async function creator(root, params, ctx) {
     paint();
   });
 
+  // Trocar de canal é uma navegação: assim o botão "voltar" do navegador
+  // funciona e a URL do canal aberto pode ser compartilhada.
+  root.querySelectorAll('[data-canal]').forEach((b) =>
+    b.addEventListener('click', () => {
+      if (b.dataset.canal !== ativo) ctx.navigate(`#/criador?canal=${encodeURIComponent(b.dataset.canal)}`);
+    })
+  );
+
+  root.querySelector('[data-add-channel]')?.addEventListener('click', (e) => conectarCanal(e.currentTarget));
+
   root.querySelector('[data-disconnect]').addEventListener('click', async (e) => {
     e.currentTarget.disabled = true;
-    await disconnectGoogleAccount();
-    toast('Canal desconectado', 'success');
+    // Desconecta só o canal aberto — os outros da conta continuam ligados.
+    await disconnectGoogleAccount(ativo);
+    toast(`${ch.title} desconectado`, 'success');
     ctx.navigate('#/criador');
   });
 
@@ -125,6 +163,8 @@ function oauthErrorMessage(code) {
     token: 'O Google recusou a troca de tokens. Tente novamente.',
     sem_refresh_token: 'O Google não devolveu permissão permanente. Revogue o acesso em myaccount.google.com/permissions e tente de novo.',
     canal_nao_encontrado: 'Essa conta do Google não tem um canal do YouTube associado.',
+    limite_de_canais: 'Você já usou todos os canais conectados do seu plano. Desconecte um ou faça upgrade.',
+    conta_nao_encontrada: 'Sua conta não foi encontrada. Entre de novo e tente conectar.',
     oauth_nao_configurado: 'O login com Google ainda não foi configurado neste servidor.',
     sessao_nao_configurada: 'O armazenamento de sessão ainda não foi configurado neste servidor.',
     interno: 'Erro interno ao conectar. Tente novamente em instantes.',
@@ -190,14 +230,31 @@ function renderConnect(root, ctx) {
       </div>
     </div>`;
 
-  root.querySelector('[data-connect]').addEventListener('click', (e) => {
-    // Navegação de página inteira — o Google exige que seja o navegador
-    // visitando a URL, não uma chamada em segundo plano.
-    const btn = e.currentTarget;
-    btn.disabled = true;
-    btn.innerHTML = 'Redirecionando…';
-    startGoogleConnect();
-  });
+  root.querySelector('[data-connect]').addEventListener('click', (e) => conectarCanal(e.currentTarget));
+}
+
+/**
+ * Pede a URL de consentimento e navega até ela.
+ *
+ * O botão só volta ao normal se algo der errado — no caminho feliz a página
+ * inteira é substituída pela tela do Google, e mexer no botão seria inútil.
+ */
+async function conectarCanal(btn) {
+  const rotulo = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = 'Redirecionando…';
+  try {
+    await startGoogleConnect();
+  } catch (err) {
+    btn.disabled = false;
+    btn.innerHTML = rotulo;
+    toast(
+      err.code === 'channelLimitReached'
+        ? `${err.message} Desconecte um canal ou faça upgrade para conectar outro.`
+        : err.message,
+      'error'
+    );
+  }
 }
 
 function previewCards() {
