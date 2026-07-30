@@ -359,11 +359,21 @@ function miniStat(label, value, tone = '') {
    Aba 2 — Conteúdo
    ========================================================================== */
 
+/**
+ * Colunas do ranking de vídeos.
+ *
+ * `precisa` é a capacidade de dado que a coluna exige. Inscritos por vídeo e
+ * retenção NÃO existem na API pública — só a YouTube Analytics API, com o
+ * dono do canal autenticado, devolve esses números. Antes as colunas ficavam
+ * sempre visíveis e um `null` virava "0" / "0%" na formatação, o que dizia ao
+ * usuário que o vídeo não converteu ninguém quando a verdade é que não temos
+ * como saber. Some a coluna em vez de inventar o número.
+ */
 const RANK_METRICS = [
   { value: 'views', label: 'Views' },
-  { value: 'subsGained', label: 'Inscritos' },
+  { value: 'subsGained', label: 'Inscritos', precisa: 'subsPerVideo' },
   { value: 'likes', label: 'Curtidas' },
-  { value: 'avgViewPct', label: 'Retenção' },
+  { value: 'avgViewPct', label: 'Retenção', precisa: 'retention' },
 ];
 
 function tabContent(host, ch, a, ctx) {
@@ -371,14 +381,28 @@ function tabContent(host, ch, a, ctx) {
   const cap = limitOf(plan, 'topVideos');
   const colors = SERIES_COLORS();
 
+  const temDado = (m) => !m.precisa || a.capabilities?.[m.precisa];
+  const metricas = RANK_METRICS.filter(temDado);
+  const ocultas = RANK_METRICS.filter((m) => !temDado(m));
+  const temSubs = !!a.capabilities?.subsPerVideo;
+  const temRetencao = !!a.capabilities?.retention;
+
   host.innerHTML = `
     <div class="section" style="margin-top:0">
       ${sectionCard({
         title: 'Ranking de vídeos',
         sub: `${int(a.videos.length)} vídeos analisados · ordenação por métrica`,
-        actions: segment('rank', RANK_METRICS, 'views'),
+        actions: segment('rank', metricas, 'views'),
         pad: false,
-        body: `<div class="tbl-wrap" data-rank-table></div>`,
+        body: `<div class="tbl-wrap" data-rank-table></div>
+          ${ocultas.length ? `
+            <div style="padding:12px 14px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+              <span class="muted fs13">
+                ${icon('lock')} ${listPt(ocultas.map((m) => m.label.toLowerCase()))}
+                ${ocultas.length === 1 ? 'só existe' : 'só existem'} na YouTube Analytics API, que responde apenas ao dono do canal.
+              </span>
+              <button class="btn btn-sm" data-nav="#/criador">${icon('google')} Conectar meu canal</button>
+            </div>` : ''}`,
       })}
     </div>
 
@@ -423,7 +447,10 @@ function tabContent(host, ch, a, ctx) {
       <table class="tbl">
         <thead><tr>
           <th>Vídeo</th><th class="n">Publicado</th><th class="n">Duração</th>
-          <th class="n">Views</th><th class="n">Inscritos</th><th class="n">Retenção</th><th class="n">Engajamento</th><th class="n">${esc(RANK_METRICS.find((m) => m.value === metric).label)}</th>
+          <th class="n">Views</th>
+          ${temSubs ? '<th class="n">Inscritos</th>' : ''}
+          ${temRetencao ? '<th class="n">Retenção</th>' : ''}
+          <th class="n">Engajamento</th><th class="n">${esc(RANK_METRICS.find((m) => m.value === metric).label)}</th>
         </tr></thead>
         <tbody>${rows.map((v, i) => {
           const et = engagementTier(v);
@@ -435,8 +462,8 @@ function tabContent(host, ch, a, ctx) {
             <td class="n muted">${relativeDays(v.publishedAt)}</td>
             <td class="n muted">${v.isShort ? 'Short' : duration(v.durationSec)}</td>
             <td class="n">${compact(v.views)}</td>
-            <td class="n">${compact(v.subsGained)}</td>
-            <td class="n">${pct(v.avgViewPct, 0)}</td>
+            ${temSubs ? `<td class="n">${compact(v.subsGained)}</td>` : ''}
+            ${temRetencao ? `<td class="n">${pct(v.avgViewPct, 0)}</td>` : ''}
             <td class="n"><span class="chip ${etClass}" title="${pct(et.rate * 100, 1)}">${etLabel}</span></td>
             <td class="n">${barCell(v[metric] ?? 0, max, fmtCell)}</td>
           </tr>`;
