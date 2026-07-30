@@ -38,9 +38,15 @@ export default async function discover(root, _params, ctx) {
         <input class="input" type="search" placeholder="Nome do canal ou @handle…" aria-label="Buscar canal" autocomplete="off" data-search-input style="height:42px">
       </div>
 
-      <p class="muted fs13" style="margin-top:14px;max-width:520px;line-height:1.6">
-        ${icon('star')} Favorite um canal para salvá-lo em
-        <a href="#/comparar" style="text-decoration:underline">Seus canais</a>.
+      <!--
+        Flex porque o reset global deixa todo SVG como bloco: solto no meio do
+        texto, o ícone cairia numa linha só dele (era o que acontecia). O flex
+        mantém estrela e frase lado a lado, nessa ordem.
+      -->
+      <p class="muted fs13" style="margin-top:14px;max-width:520px;line-height:1.6;display:flex;align-items:center;gap:7px">
+        <span style="flex-shrink:0;display:inline-flex">${icon('star')}</span>
+        <span>Favorite um canal para salvá-lo em
+          <a href="#/comparar" style="text-decoration:underline">Seus canais</a>.</span>
       </p>
     </div>`;
 

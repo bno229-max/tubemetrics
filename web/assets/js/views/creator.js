@@ -191,38 +191,19 @@ function renderConnect(root, ctx) {
     <div class="page">
       <div class="page-head">
         <h1>Dashboard do Criador</h1>
-        <p>Conecte sua conta do Google para trazer os dados que a API pública não expõe:
-           receita real, RPM, CPM, CTR das miniaturas, retenção de audiência e fontes de tráfego.</p>
+        <p>Conecte sua conta do Google para trazer os dados do seu canal de forma organizada.</p>
       </div>
 
-      <div class="grid g-2-1" style="align-items:start">
-        <div class="card" style="padding:32px;text-align:center">
-          <div style="width:52px;height:52px;border-radius:14px;background:var(--surface-2);border:1px solid var(--border);display:grid;place-items:center;margin:0 auto 18px">${icon('google')}</div>
-          <h2 style="font-size:19px;font-weight:660;letter-spacing:-.022em">Conectar com o Google</h2>
-          <p class="txt-2 fs13" style="max-width:44ch;margin:9px auto 0;line-height:1.55">
-            Autorização somente de leitura. O TubeMetrics nunca publica, edita ou apaga nada no seu canal.
-          </p>
-          <button class="btn btn-primary btn-lg" style="margin-top:22px" data-connect>${icon('google')} Continuar com o Google</button>
-          <p class="muted fs12" style="margin-top:14px">Você verá a tela oficial de consentimento do Google antes de qualquer acesso.</p>
-        </div>
-
-        <div class="card" style="padding:20px">
-          <div class="label" style="margin-bottom:12px">Escopos solicitados</div>
-          ${[
-            ['youtube.readonly', 'Ler metadados do canal e da lista de uploads.'],
-            ['yt-analytics.readonly', 'Ler views, tempo de exibição, retenção, CTR e inscritos.'],
-            ['yt-analytics-monetary.readonly', 'Ler receita estimada, RPM e CPM.'],
-          ].map(([s, d]) => `
-            <div style="display:flex;gap:10px;padding:11px 0;border-bottom:1px solid var(--border)">
-              <span style="color:var(--pos);flex-shrink:0">${icon('shield')}</span>
-              <div><code style="font-size:12px;font-family:var(--mono);color:var(--text)">${esc(s)}</code>
-              <div class="muted fs12" style="margin-top:3px">${esc(d)}</div></div>
-            </div>`).join('')}
-          <p class="muted fs12" style="margin-top:14px">
-            O <i>refresh token</i> fica cifrado no servidor e nunca é enviado ao navegador.
-            O <i>access token</i> vive 1 hora e é renovado sob demanda.
-          </p>
-        </div>
+      <!-- Card único e centralizado: a lista de escopos saiu, e um grid de
+           duas colunas com um filho só deixaria a caixa esticada. -->
+      <div class="card" style="padding:32px;text-align:center;max-width:560px;margin:0 auto">
+        <div style="width:52px;height:52px;border-radius:14px;background:var(--surface-2);border:1px solid var(--border);display:grid;place-items:center;margin:0 auto 18px">${icon('google')}</div>
+        <h2 style="font-size:19px;font-weight:660;letter-spacing:-.022em">Conectar com o Google</h2>
+        <p class="txt-2 fs13" style="max-width:44ch;margin:9px auto 0;line-height:1.55">
+          Autorização somente de leitura. O TubeMetrics nunca publica, edita ou apaga nada no seu canal.
+        </p>
+        <button class="btn btn-primary btn-lg" style="margin-top:22px" data-connect>${icon('google')} Continuar com o Google</button>
+        <p class="muted fs12" style="margin-top:14px">Você verá a tela oficial de consentimento do Google antes de qualquer acesso.</p>
       </div>
 
       <div class="section">
