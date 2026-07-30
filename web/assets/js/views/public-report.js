@@ -2,7 +2,7 @@
 
 import { getPublicReport, consumeQuota } from '../api.js';
 import {
-  icon, avatar, kpi, insightCard, sectionCard, segment, videoCell, barCell, gate, toast, emptyState,
+  icon, avatar, kpi, insightCard, sectionCard, segment, videoCell, barCell, gate, toast, modal, emptyState,
 } from '../ui.js';
 import { lineChart, barChart, hBarChart, donutChart, scoreDial, radarChart, SERIES_COLORS } from '../charts.js';
 import {
@@ -132,13 +132,27 @@ export default async function publicReport(root, params, ctx) {
   root.querySelector('[data-favorite]').addEventListener('click', () => {
     const r = store.toggleFavorite(ch);
     if (!r.ok) {
-      toast(
-        r.reason === 'plan'
-          ? `Favoritos começam no plano ${PLAN_BY_ID[requiredPlan('favorites')].name}`
-          : `Seu plano permite ${r.limit} favoritos. Remova um para salvar outro.`,
-        'error'
-      );
-      if (r.reason === 'plan') ctx.navigate('#/planos');
+      if (r.reason === 'plan') {
+        toast(`Favoritos começam no plano ${PLAN_BY_ID[requiredPlan('favorites')].name}`, 'error');
+        ctx.navigate('#/planos');
+        return;
+      }
+      // Dizer o teto E onde liberar espaço: sem o segundo, a pessoa fica
+      // sabendo que não pode, mas não o que fazer a respeito.
+      const planoAtual = PLAN_BY_ID[store.get().plan].name;
+      modal({
+        title: `Você chegou ao limite de ${r.limit} favoritos`,
+        subtitle: `O plano ${planoAtual} permite salvar até ${r.limit} ${r.limit === 1 ? 'canal' : 'canais'}.`,
+        width: 430,
+        body: `<p class="txt-2 fs13" style="line-height:1.6">
+            Para salvar <b>${esc(ch.title)}</b>, libere uma vaga removendo outro canal em
+            <b>Comparar canais</b> — lá cada canal salvo tem um botão de estrela que o tira dos favoritos.
+          </p>`,
+        actions: [
+          { label: 'Agora não' },
+          { label: 'Gerenciar favoritos', primary: true, onClick: () => ctx.navigate('#/comparar') },
+        ],
+      });
       return;
     }
     toast(

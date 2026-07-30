@@ -32,6 +32,8 @@ export default async function compare(root, _params, ctx) {
   // Favoritar num relatório é o que coloca um canal aqui.
   const conhecidos = dedupe(s.favorites || []);
   const selected = s.compare;
+  const favLimite = limitOf(s.plan, 'favorites');
+  const favoritosUsados = conhecidos.length;
 
   root.innerHTML = `
     <div class="page">
@@ -54,16 +56,38 @@ export default async function compare(root, _params, ctx) {
           <input class="input" type="search" placeholder="Buscar canal para comparar…" aria-label="Buscar canal" autocomplete="off" data-search-input>
         </div>
 
+        ${selected.length ? `
+          <div class="label" style="margin:16px 0 9px">Na comparação</div>
+          <div class="flex g8 wrap" data-selecionados>
+            ${selected.map((id) => `
+              <span class="btn btn-sm" style="gap:8px;border-color:var(--yt-500);background:var(--yt-soft);color:var(--yt-600);cursor:default">
+                <b style="font-weight:560" data-nome-de="${esc(id)}">${esc(nomeDoCanal(id, conhecidos))}</b>
+                <button data-remover="${esc(id)}" title="Tirar da comparação" aria-label="Tirar da comparação"
+                  style="border:0;background:none;padding:0;cursor:pointer;color:inherit;display:inline-flex">${icon('close')}</button>
+              </span>`).join('')}
+          </div>` : ''}
+
         <div class="label" style="margin:16px 0 9px">Seus canais</div>
         ${conhecidos.length ? `
           <div class="flex g8 wrap">
             ${conhecidos.map((c) => {
               const on = selected.includes(c.id);
-              return `<button class="btn btn-sm" data-toggle="${esc(c.id)}" style="gap:8px;${on ? 'border-color:var(--yt-500);background:var(--yt-soft)' : ''}">
-                ${avatar(c, 18)} ${esc(c.title)} ${on ? icon('close') : icon('plus')}
-              </button>`;
+              return `<span class="btn btn-sm" style="gap:7px;padding-right:8px;${on ? 'border-color:var(--yt-500);background:var(--yt-soft)' : ''}">
+                <button data-toggle="${esc(c.id)}" title="${on ? 'Tirar da comparação' : 'Adicionar à comparação'}"
+                  style="border:0;background:none;padding:0;cursor:pointer;color:inherit;display:inline-flex;align-items:center;gap:7px;font:inherit">
+                  ${avatar(c, 18)} ${esc(c.title)} ${on ? icon('check') : icon('plus')}
+                </button>
+                <button data-desfavoritar="${esc(c.id)}" title="Remover dos favoritos" aria-label="Remover ${esc(c.title)} dos favoritos"
+                  style="border:0;background:none;padding:0 0 0 4px;margin-left:2px;border-left:1px solid var(--border);cursor:pointer;color:var(--text-3);display:inline-flex">
+                  ${icon('starFilled')}
+                </button>
+              </span>`;
             }).join('')}
-          </div>`
+          </div>
+          <p class="muted fs12" style="margin-top:10px">
+            Clique no nome para incluir ou tirar da comparação. Clique na estrela para liberar a vaga de favorito
+            (${int(favoritosUsados)} de ${favLimite === Infinity ? 'ilimitados' : int(favLimite)} no plano ${esc(PLAN_BY_ID[s.plan].name)}).
+          </p>`
         : `<p class="muted fs13" style="line-height:1.6">
              Nenhum canal salvo ainda. Abra o relatório de um canal e use
              ${icon('star')} <b>Favoritar</b> — ele aparece aqui para você montar comparações.
@@ -95,11 +119,34 @@ export default async function compare(root, _params, ctx) {
     });
   });
 
+  // Tirar da comparação direto pelo chip "Na comparação". É o único caminho
+  // para canais que entraram antes de existirem favoritos: eles não aparecem
+  // em "Seus canais" e, sem isto, ficariam presos ocupando uma vaga.
+  root.querySelectorAll('[data-remover]').forEach((b) => {
+    b.addEventListener('click', () => {
+      const id = b.dataset.remover;
+      store.toggleCompare(id);
+      toast(`${nomeDoCanal(id, conhecidos)} saiu da comparação`, 'success');
+      ctx.navigate('#/comparar');
+    });
+  });
+
+  // Desfavoritar libera vaga de favorito sem mexer na comparação.
+  root.querySelectorAll('[data-desfavoritar]').forEach((b) => {
+    b.addEventListener('click', () => {
+      const c = conhecidos.find((x) => x.id === b.dataset.desfavoritar);
+      if (!c) return;
+      store.toggleFavorite(c);
+      toast(`${c.title} saiu dos favoritos`, 'success');
+      ctx.navigate('#/comparar');
+    });
+  });
+
   const body = root.querySelector('[data-body]');
   if (selected.length < 2) {
     body.innerHTML = emptyState({
       title: 'Escolha ao menos dois canais',
-      note: 'Busque acima ou use um canal do seu histórico para montar o comparativo.',
+      note: 'Busque acima ou use um canal salvo em "Seus canais" para montar o comparativo.',
       iconName: 'compare',
     });
     return;
@@ -111,6 +158,7 @@ export default async function compare(root, _params, ctx) {
   if (ctx.stale()) return;
 
   const validos = reports.filter(Boolean);
+  rotularSelecionados(root, validos);
   if (validos.length < 2) {
     body.innerHTML = emptyState({
       title: 'Não foi possível carregar os canais',
@@ -153,6 +201,27 @@ const dedupe = (arr) => {
   const seen = new Set();
   return arr.filter((c) => (seen.has(c.id) ? false : (seen.add(c.id), true)));
 };
+
+/**
+ * Nome de um canal escolhido para comparação.
+ *
+ * `store.compare` guarda só os ids, então o nome vem dos favoritos quando o
+ * canal é um deles. Quando não é — caso dos que ficaram de versões
+ * anteriores, antes de "Seus canais" existir — mostramos o id abreviado até
+ * o relatório carregar e trazer o título de verdade (ver `rotularSelecionados`).
+ */
+function nomeDoCanal(id, favoritos) {
+  const fav = favoritos.find((c) => c.id === id);
+  return fav ? fav.title : `Canal ${id.slice(0, 8)}…`;
+}
+
+/** Troca os rótulos provisórios pelos títulos reais assim que eles chegam. */
+function rotularSelecionados(root, reports) {
+  for (const r of reports) {
+    const alvo = root.querySelector(`[data-nome-de="${CSS.escape(r.channel.id)}"]`);
+    if (alvo) alvo.textContent = r.channel.title;
+  }
+}
 
 function renderComparison(host, reports) {
   const colors = SERIES_COLORS();
