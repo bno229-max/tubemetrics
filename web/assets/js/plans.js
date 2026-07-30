@@ -15,7 +15,7 @@
  * Grátis libera TODAS as features — a ideia é que quem ainda não paga
  * conheça o produto inteiro, não uma versão capada. O que trava o plano
  * Grátis não é o que ele pode abrir, é o teto de 3 análises vitalícias (ver
- * `LIMITS.free.searchesPerMonth` abaixo e `api/quota-consume.js`).
+ * `LIMITS.free.searchesPerMonth` abaixo e `api/account.js`).
  */
 export const FEATURES = {
   public_analysis:    { label: 'Análise pública de canais',             tiers: ['free', 'starter', 'pro', 'creator'] },
@@ -43,7 +43,7 @@ export const FEATURES = {
  * A cota de busca dos planos PAGOS é mensal: analisar canal é decisão de
  * planejamento e acontece em ondas, e um teto diário puniria justamente a
  * semana em que o assinante mais precisa da ferramenta. A do Grátis
- * (`searchesPerMonth: 3`) é tratada como VITALÍCIA por `api/quota-consume.js`
+ * (`searchesPerMonth: 3`) é tratada como VITALÍCIA por `api/account.js`
  * — nome do campo ficou igual por simplicidade, mas para o plano `free` ele
  * nunca reseta.
  */

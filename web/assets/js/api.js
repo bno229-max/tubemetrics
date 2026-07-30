@@ -294,17 +294,19 @@ export async function disconnectGoogleAccount() {
 /* ---------------------------------------------------------------- conta */
 
 /**
- * `GET /api/auth/me` — perfil e cota de quem está logado. 401 vira `null`, o
- * mesmo sinal de "sem sessão" que `getCreatorReport()` já usa — aqui significa
- * apenas "ninguém logado ainda".
+ * Tudo de conta fala com `/api/account`, que concentra perfil, plano e cota
+ * numa função só — o plano Hobby da Vercel limita o deploy a 12 Serverless
+ * Functions, e quatro arquivos separados estouravam a conta (ver o cabeçalho
+ * de `api/account.js`).
  *
- * Quando a conta existe no Firebase mas ainda não tem perfil nosso, volta
- * `{ user: null, needsProfile: true }` — é o 1º acesso, que ainda precisa
- * informar nome e telefone.
+ * `GET` devolve perfil e cota. 401 vira `null`, o mesmo sinal de "sem sessão"
+ * que `getCreatorReport()` já usa — aqui significa "ninguém logado ainda".
+ * Conta que existe no Firebase mas ainda não tem perfil volta como
+ * `{ user: null, needsProfile: true }`: é o 1º acesso incompleto.
  */
 export async function fetchMe() {
   try {
-    return await accountRequest('/auth/me', { method: 'GET' });
+    return await accountRequest('/account', { method: 'GET' });
   } catch (err) {
     if (err.status === 401) return null;
     throw err;
@@ -312,12 +314,12 @@ export async function fetchMe() {
 }
 
 /** Completa o 1º acesso: nome e telefone, que o Firebase Auth não guarda. */
-export const saveProfile = (data) => accountRequest('/auth/me', { payload: data });
+export const saveProfile = (data) => accountRequest('/account', { payload: { action: 'profile', ...data } });
 
-export const setAccountPlan = (plan) => accountRequest('/auth/set-plan', { payload: { plan } });
+export const setAccountPlan = (plan) => accountRequest('/account', { payload: { action: 'plan', plan } });
 
 /** Gasta 1 análise da conta logada — chamado antes de `getPublicReport`. */
-export const consumeQuota = (channelId) => accountRequest('/quota-consume', { payload: { channelId } });
+export const consumeQuota = (channelId) => accountRequest('/account', { payload: { action: 'quota', channelId } });
 
 /** Estado do backend — a interface usa para mostrar a origem dos dados. */
 export async function backendHealth() {

@@ -25,7 +25,7 @@ function init() {
     const [{ initializeApp }, authMod, cfgRes] = await Promise.all([
       import(`${SDK}firebase-app.js`),
       import(`${SDK}firebase-auth.js`),
-      fetch('/api/firebase-config'),
+      fetch('/api/account?resource=config'),
     ]);
 
     if (!cfgRes.ok) {

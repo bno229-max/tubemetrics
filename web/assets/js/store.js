@@ -3,7 +3,7 @@
  *
  * Guarda tema, favoritos, histórico de pesquisa e um espelho local da conta
  * logada (`user`/`quota`). A AUTORIDADE de conta/plano/cota é o servidor
- * (`api/auth/*`, `api/quota-consume.js`) — o que fica aqui é só cache para a
+ * (`api/account.js`) — o que fica aqui é só cache para a
  * UI não esperar uma rede a cada repintura. `setUser`/`clearUser` são os
  * únicos pontos que escrevem `user`/`quota`/`plan`, sempre os três juntos,
  * pra nunca ficar com plano e conta dessincronizados.
