@@ -144,6 +144,15 @@ export function hydrateAccount() {
 }
 
 /**
+ * Um fluxo de autenticação em andamento, se houver.
+ *
+ * Sem isto, navegar enquanto o modal está aberto empilha modais: cada rota
+ * nova chama `ensureAuth()` de novo e ganha o seu próprio. Quem já está
+ * esperando o login terminar recebe a MESMA promessa.
+ */
+let emAndamento = null;
+
+/**
  * Garante conta logada E perfil completo antes de seguir.
  *
  * O `await` na hidratação não é detalhe: o roteador dispara a view no mesmo
@@ -158,12 +167,20 @@ export async function ensureAuth() {
 
   const s = store.get();
   if (s.user) return true;
+  if (emAndamento) return emAndamento;
 
-  return new Promise((resolve) => {
+  emAndamento = new Promise((resolve) => {
     let done = false;
-    const finish = (ok) => { if (!done) { done = true; resolve(ok); } };
+    const finish = (ok) => {
+      if (done) return;
+      done = true;
+      emAndamento = null;
+      resolve(ok);
+    };
     open(s.needsProfile ? 'profile' : 'login', finish);
   });
+
+  return emAndamento;
 }
 
 function open(screen, finish) {
