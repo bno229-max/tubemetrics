@@ -9,36 +9,46 @@
  * front esconde, o back-end recusa. Flag de cliente é UX, não segurança.
  */
 
-/** Catálogo de recursos. `tiers` lista os planos que liberam o recurso. */
+/**
+ * Catálogo de recursos. `tiers` lista os planos que liberam o recurso.
+ *
+ * Grátis libera TODAS as features — a ideia é que quem ainda não paga
+ * conheça o produto inteiro, não uma versão capada. O que trava o plano
+ * Grátis não é o que ele pode abrir, é o teto de 3 análises vitalícias (ver
+ * `LIMITS.free.searchesPerMonth` abaixo e `api/quota-consume.js`).
+ */
 export const FEATURES = {
   public_analysis:    { label: 'Análise pública de canais',             tiers: ['free', 'starter', 'pro', 'creator'] },
   channel_score:      { label: 'Nota geral do canal',                   tiers: ['free', 'starter', 'pro', 'creator'] },
   earnings_estimate:  { label: 'Estimativa de ganhos por faixa',        tiers: ['free', 'starter', 'pro', 'creator'] },
-  favorites:          { label: 'Favoritar canais',                      tiers: ['starter', 'pro', 'creator'] },
-  history_full:       { label: 'Histórico completo (sem corte)',        tiers: ['starter', 'pro', 'creator'] },
-  advanced_insights:  { label: 'Consultor de dados completo',           tiers: ['starter', 'pro', 'creator'] },
-  best_time:          { label: 'Melhor horário para publicar',          tiers: ['starter', 'pro', 'creator'] },
-  ideal_frequency:    { label: 'Frequência ideal de postagem',          tiers: ['starter', 'pro', 'creator'] },
-  compare_channels:   { label: 'Comparação de canais',                  tiers: ['starter', 'pro', 'creator'] },
-  top_channels:       { label: 'Ranking Top 20 por inscritos',          tiers: ['starter', 'pro', 'creator'] },
-  rankings:           { label: 'Rankings globais e por país',            tiers: ['starter', 'pro', 'creator'] },
-  growth_alerts:      { label: 'Alertas de meta de crescimento',        tiers: ['starter', 'pro', 'creator'] },
-  creator_dashboard:  { label: 'Dashboard do Criador (dados privados)', tiers: ['starter', 'pro', 'creator'] },
-  revenue_per_video:  { label: 'Receita detalhada por vídeo',           tiers: ['starter', 'pro', 'creator'] },
-  multi_channel:      { label: 'Múltiplos canais (gestão de rede)',     tiers: ['pro', 'creator'] },
-  team_seats:         { label: 'Acesso para equipes',                   tiers: ['pro', 'creator'] },
-  export_reports:     { label: 'Exportação PDF / Excel',                tiers: ['pro', 'creator'] },
+  favorites:          { label: 'Favoritar canais',                      tiers: ['free', 'starter', 'pro', 'creator'] },
+  history_full:       { label: 'Histórico completo (sem corte)',        tiers: ['free', 'starter', 'pro', 'creator'] },
+  advanced_insights:  { label: 'Consultor de dados completo',           tiers: ['free', 'starter', 'pro', 'creator'] },
+  best_time:          { label: 'Melhor horário para publicar',          tiers: ['free', 'starter', 'pro', 'creator'] },
+  ideal_frequency:    { label: 'Frequência ideal de postagem',          tiers: ['free', 'starter', 'pro', 'creator'] },
+  compare_channels:   { label: 'Comparação de canais',                  tiers: ['free', 'starter', 'pro', 'creator'] },
+  top_channels:       { label: 'Ranking Top 20 por inscritos',          tiers: ['free', 'starter', 'pro', 'creator'] },
+  rankings:           { label: 'Rankings globais e por país',            tiers: ['free', 'starter', 'pro', 'creator'] },
+  growth_alerts:      { label: 'Alertas de meta de crescimento',        tiers: ['free', 'starter', 'pro', 'creator'] },
+  creator_dashboard:  { label: 'Dashboard do Criador (dados privados)', tiers: ['free', 'starter', 'pro', 'creator'] },
+  revenue_per_video:  { label: 'Receita detalhada por vídeo',           tiers: ['free', 'starter', 'pro', 'creator'] },
+  multi_channel:      { label: 'Múltiplos canais (gestão de rede)',     tiers: ['free', 'pro', 'creator'] },
+  team_seats:         { label: 'Acesso para equipes',                   tiers: ['free', 'pro', 'creator'] },
+  export_reports:     { label: 'Exportação PDF / Excel',                tiers: ['free', 'pro', 'creator'] },
 };
 
 /**
  * Limites numéricos. `Infinity` = sem teto.
  *
- * A cota de busca é MENSAL, não diária: analisar canal é decisão de
- * planejamento e acontece em ondas. Um teto diário puniria justamente a semana
- * em que o assinante mais precisa da ferramenta.
+ * A cota de busca dos planos PAGOS é mensal: analisar canal é decisão de
+ * planejamento e acontece em ondas, e um teto diário puniria justamente a
+ * semana em que o assinante mais precisa da ferramenta. A do Grátis
+ * (`searchesPerMonth: 3`) é tratada como VITALÍCIA por `api/quota-consume.js`
+ * — nome do campo ficou igual por simplicidade, mas para o plano `free` ele
+ * nunca reseta.
  */
 export const LIMITS = {
-  free:    { searchesPerMonth: 3,        favorites: 0,        comparisonSlots: 0,  connectedChannels: 0,  historyDays: 90,   seats: 1, topVideos: 10 },
+  free:    { searchesPerMonth: 3,        favorites: 3,        comparisonSlots: 1,  connectedChannels: 1,  historyDays: 90,   seats: 1, topVideos: 10 },
   starter: { searchesPerMonth: 50,       favorites: 5,        comparisonSlots: 2,  connectedChannels: 1,  historyDays: 730,  seats: 1, topVideos: 100 },
   pro:     { searchesPerMonth: 120,      favorites: 15,       comparisonSlots: 5,  connectedChannels: 3,  historyDays: 1095, seats: 5, topVideos: Infinity },
   // Creator entrega os mesmos benefícios do Pro, mudando só a escala de canais.
@@ -50,14 +60,15 @@ export const PLANS = [
     id: 'free',
     name: 'Grátis',
     price: 0,
-    tagline: 'Para investigar um canal antes de decidir.',
+    tagline: 'Conheça o produto inteiro antes de assinar.',
     highlights: [
-      'Análise pública completa de canais',
+      'Acesso a todos os recursos do sistema',
       'Nota geral do canal (0–100)',
       'Estimativa de ganhos por faixa',
-      '3 análises de canal por mês',
+      'Consultor de dados, comparação e Dashboard do Criador',
+      '3 análises de canal vitalícias',
     ],
-    missing: ['Favoritos', 'Comparação entre canais', 'Melhor horário e frequência ideal', 'Dados privados do seu canal'],
+    missing: ['Mais de 3 análises de canal'],
     cta: 'Começar grátis',
   },
   {

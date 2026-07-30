@@ -14,7 +14,7 @@
 
 import { trending, growth, topChannels } from '../api.js';
 import { avatar, icon, sectionCard, gate, emptyState, segment, toast } from '../ui.js';
-import { ensureLead } from './signup.js';
+import { ensureAuth } from './auth.js';
 import { hBarChart, SERIES_COLORS } from '../charts.js';
 import { esc, compact, int, dec, relativeDays, duration } from '../format.js';
 import { can, requiredPlan, PLAN_BY_ID } from '../plans.js';
@@ -126,7 +126,7 @@ export default async function rankings(root, _params, ctx) {
 
   body.addEventListener('click', async (e) => {
     const abrir = e.target.closest('[data-open]');
-    if (abrir && (await ensureLead())) ctx.navigate(`#/canal/${abrir.dataset.open}`);
+    if (abrir && (await ensureAuth())) ctx.navigate(`#/canal/${abrir.dataset.open}`);
   });
 
   await carregar();

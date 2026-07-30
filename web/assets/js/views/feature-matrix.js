@@ -19,9 +19,11 @@ const LIMIT_LABELS = {
   topVideos: 'Vídeos por ranking',
 };
 
-const fmtLimit = (key, v) => {
+const fmtLimit = (key, v, planId) => {
   if (v === Infinity) return 'Ilimitado';
   if (key === 'historyDays') return v >= 365 ? `${Math.round(v / 365)} ano${v >= 730 ? 's' : ''}` : `${v} dias`;
+  // No Grátis esta cota não reseta por mês — ver comentário em plans.js.
+  if (key === 'searchesPerMonth' && planId === 'free') return `${int(v)} vitalícias`;
   if (v === 0) return '—';
   return int(v);
 };
@@ -55,7 +57,7 @@ export function featureMatrix({ showKeys = false, title = 'Matriz de recursos', 
           <tr>
             <td><b style="font-weight:550">${esc(LIMIT_LABELS[key])}</b>
               ${showKeys ? `<div class="muted" style="font-family:var(--mono);font-size:11px;margin-top:2px">${esc(key)}</div>` : ''}</td>
-            ${PLANS.map((p) => `<td class="n">${fmtLimit(key, LIMITS[p.id][key])}</td>`).join('')}
+            ${PLANS.map((p) => `<td class="n">${fmtLimit(key, LIMITS[p.id][key], p.id)}</td>`).join('')}
           </tr>`).join('')}
       </tbody>
     </table></div>`,

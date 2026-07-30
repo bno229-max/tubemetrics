@@ -12,9 +12,9 @@
  * correto: no máximo uma visita fica desatualizada.
  */
 
-// v5: bandeira do "Top 20" alinhada ao lado do texto, ajustes de destaques
-// do Pro e remoção do parágrafo de texto da página de Planos.
-const CACHE = 'tubemetrics-v5';
+// v6: conta de verdade (login/cadastro/senha) substitui o cadastro de
+// localStorage — `signup.js` saiu do SHELL, `auth.js` entrou.
+const CACHE = 'tubemetrics-v6';
 
 const SHELL = [
   './',
@@ -32,9 +32,9 @@ const SHELL = [
   './assets/js/plans.js',
   './assets/js/store.js',
   './assets/js/ui.js',
+  './assets/js/views/auth.js',
   './assets/js/views/compare.js',
   './assets/js/views/feature-matrix.js',
-  './assets/js/views/signup.js',
   './assets/js/views/top.js',
   './assets/js/views/creator.js',
   './assets/js/views/discover.js',

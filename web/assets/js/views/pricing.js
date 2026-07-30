@@ -4,6 +4,8 @@ import { PLANS, PLAN_BY_ID } from '../plans.js';
 import { icon, toast } from '../ui.js';
 import { featureMatrix } from './feature-matrix.js';
 import { esc, money } from '../format.js';
+import { setAccountPlan } from '../api.js';
+import { ensureAuth } from './auth.js';
 import * as store from '../store.js';
 
 export default async function pricing(root, _params, ctx) {
@@ -44,11 +46,17 @@ export default async function pricing(root, _params, ctx) {
     </div>`;
 
   root.querySelectorAll('[data-plan]').forEach((b) => {
-    b.addEventListener('click', () => {
+    b.addEventListener('click', async () => {
       const id = b.dataset.plan;
-      store.set({ plan: id });
-      toast(`Plano alterado para ${PLAN_BY_ID[id].name}`, 'success');
-      ctx.navigate('#/planos');
+      if (!(await ensureAuth())) return;
+      try {
+        const body = await setAccountPlan(id);
+        store.setUser(body.user, body.quota);
+        toast(`Plano alterado para ${PLAN_BY_ID[id].name}`, 'success');
+        ctx.navigate('#/planos');
+      } catch (err) {
+        toast(err.message, 'error');
+      }
     });
   });
 }

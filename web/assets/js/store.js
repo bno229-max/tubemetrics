@@ -1,9 +1,12 @@
 /**
  * store.js — Estado da sessão com persistência em localStorage.
  *
- * Guarda plano ativo, tema, cadastro, favoritos, histórico de pesquisa e a cota
- * mensal de análises. Publish/subscribe simples: nenhuma tela lê localStorage
- * direto.
+ * Guarda tema, favoritos, histórico de pesquisa e um espelho local da conta
+ * logada (`user`/`quota`). A AUTORIDADE de conta/plano/cota é o servidor
+ * (`api/auth/*`, `api/quota-consume.js`) — o que fica aqui é só cache para a
+ * UI não esperar uma rede a cada repintura. `setUser`/`clearUser` são os
+ * únicos pontos que escrevem `user`/`quota`/`plan`, sempre os três juntos,
+ * pra nunca ficar com plano e conta dessincronizados.
  */
 
 import { isValidPlan, limitOf } from './plans.js';
@@ -21,11 +24,10 @@ const DEFAULTS = {
   region: 'BR',
   connected: false,
   connectedChannels: [],
-  /** Cadastro do usuário (nome, telefone, e-mail). `null` = ainda não fez. */
-  lead: null,
-  /** Cota mensal: mês corrente e canais já analisados nele. */
-  searchMonth: '',
-  searchedIds: [],
+  /** Conta logada (nome, e-mail, plano). `null` = ninguém logado ainda. */
+  user: null,
+  /** Cota vinda do servidor: `{ used, limit, remaining, lifetime }`. */
+  quota: null,
   /** Canais analisados, com dados de exibição para o histórico. */
   history: [],
   favorites: [],
@@ -74,39 +76,17 @@ export function reset() {
   listeners.forEach((fn) => fn(state));
 }
 
-/* ------------------------------------------------------------- cadastro */
+/* ----------------------------------------------------------------- conta */
 
-export const hasLead = () => !!state.lead?.email;
+export const isLoggedIn = () => !!state.user;
 
-export function saveLead({ name, phone, email }) {
-  set({ lead: { name, phone, email, at: new Date().toISOString() } });
+/** Único ponto que grava conta: sempre `user` + `quota` + `plan` juntos. */
+export function setUser(user, quota) {
+  set({ user, quota: quota || null, plan: user.plan });
 }
 
-/* ------------------------------------------------------------ cota mensal */
-
-const currentMonth = () => new Date().toISOString().slice(0, 7);
-
-/** Análises já usadas no mês. Zera sozinha na virada. */
-export function searchesThisMonth() {
-  return state.searchMonth === currentMonth() ? state.searchedIds.length : 0;
-}
-
-export function searchQuota() {
-  const limit = limitOf(state.plan, 'searchesPerMonth');
-  const used = searchesThisMonth();
-  return { used, limit, remaining: limit === Infinity ? Infinity : Math.max(0, limit - used) };
-}
-
-/** Canal já analisado neste mês não consome cota de novo. */
-export function alreadySearched(channelId) {
-  return state.searchMonth === currentMonth() && state.searchedIds.includes(channelId);
-}
-
-export function consumeSearch(channelId) {
-  const m = currentMonth();
-  if (state.searchMonth !== m) set({ searchMonth: m, searchedIds: [] });
-  if (state.searchedIds.includes(channelId)) return;
-  set((s) => ({ searchedIds: [...s.searchedIds, channelId] }));
+export function clearUser() {
+  set({ user: null, quota: null, plan: 'free' });
 }
 
 /* --------------------------------------------------- histórico de pesquisa */

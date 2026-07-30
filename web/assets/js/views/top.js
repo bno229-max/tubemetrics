@@ -2,7 +2,7 @@
 
 import { topChannels } from '../api.js';
 import { avatar, icon, sectionCard, gate, emptyState, toast, flagBR } from '../ui.js';
-import { ensureLead } from './signup.js';
+import { ensureAuth } from './auth.js';
 import { hBarChart, SERIES_COLORS } from '../charts.js';
 import { esc, compact, int, dec, dateLong } from '../format.js';
 import { can, requiredPlan, PLAN_BY_ID } from '../plans.js';
@@ -230,7 +230,7 @@ export default async function top(root, _params, ctx) {
   body.addEventListener('click', async (e) => {
     const row = e.target.closest('[data-open]');
     if (!row) return;
-    if (await ensureLead()) ctx.navigate(`#/canal/${row.dataset.open}`);
+    if (await ensureAuth()) ctx.navigate(`#/canal/${row.dataset.open}`);
   });
 }
 

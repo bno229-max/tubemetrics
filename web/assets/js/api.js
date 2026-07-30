@@ -53,6 +53,23 @@ async function request(path, params) {
   }
 }
 
+/** POST com corpo JSON — usado pelas rotas de conta, que não são cacheáveis. */
+async function postJson(path, payload) {
+  const res = await fetch(new URL(`${CONFIG.apiBase}${path}`, location.origin), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(payload || {}),
+  });
+  const body = await res.json().catch(() => null);
+  if (!res.ok) {
+    const err = new Error(body?.error?.message || `Backend respondeu ${res.status}`);
+    err.code = body?.error?.code || String(res.status);
+    err.status = res.status;
+    throw err;
+  }
+  return body;
+}
+
 /**
  * Executa contra o backend e, em 'auto', cai para o mock quando ele falha.
  *
@@ -255,6 +272,32 @@ export async function disconnectGoogleAccount() {
     await fetch(`${CONFIG.apiBase}/auth/logout`, { method: 'POST' });
   } catch { /* best-effort — o cookie expira sozinho de qualquer forma */ }
 }
+
+/* ---------------------------------------------------------------- conta */
+
+/**
+ * `GET /api/auth/me` — quem está logado, se alguém estiver. 401 vira `null`,
+ * o mesmo sinal de "sem sessão" que `getCreatorReport()` já usa pro 401 do
+ * dashboard do criador — aqui significa só "ninguém logado ainda".
+ */
+export async function fetchMe() {
+  try {
+    return await request('/auth/me', {});
+  } catch (err) {
+    if (err.status === 401) return null;
+    throw err;
+  }
+}
+
+export const registerAccount = (data) => postJson('/auth/register', data);
+export const loginAccount = (data) => postJson('/auth/login', data);
+export const signOutAccount = () => postJson('/auth/signout', {});
+export const forgotPassword = (email) => postJson('/auth/forgot-password', { email });
+export const resetPassword = (token, password) => postJson('/auth/reset-password', { token, password });
+export const setAccountPlan = (plan) => postJson('/auth/set-plan', { plan });
+
+/** Gasta 1 análise da conta logada — chamado antes de `getPublicReport`. */
+export const consumeQuota = (channelId) => postJson('/quota-consume', { channelId });
 
 /** Estado do backend — a interface usa para mostrar a origem dos dados. */
 export async function backendHealth() {

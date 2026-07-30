@@ -2,14 +2,14 @@
 
 import { avatar, icon, emptyState, toast, sectionCard } from '../ui.js';
 import { mountSearch } from './searchbox.js';
-import { ensureLead } from './signup.js';
+import { ensureAuth } from './auth.js';
 import { esc, compact, int, relativeDays } from '../format.js';
 import { limitOf, can } from '../plans.js';
 import * as store from '../store.js';
 
 export default async function discover(root, _params, ctx) {
   const s = store.get();
-  const quota = store.searchQuota();
+  const quota = s.quota;
   const favLimit = limitOf(s.plan, 'favorites');
 
   root.innerHTML = `
@@ -20,10 +20,10 @@ export default async function discover(root, _params, ctx) {
             <h1>Descobrir canais</h1>
           </div>
           <div class="actions">
-            ${quota.limit === Infinity
+            ${!quota ? '' : quota.limit === Infinity
               ? '<span class="chip chip-pos">Análises ilimitadas</span>'
               : `<span class="chip ${quota.remaining === 0 ? 'chip-neg' : quota.remaining <= 2 ? 'chip-warn' : ''}">
-                   ${int(quota.remaining)} ${quota.remaining === 1 ? 'análise restante' : 'análises restantes'} neste mês</span>`}
+                   ${int(quota.remaining)} ${quota.remaining === 1 ? 'análise restante' : 'análises restantes'}${quota.lifetime ? '' : ' neste mês'}</span>`}
           </div>
         </div>
       </div>
@@ -38,7 +38,7 @@ export default async function discover(root, _params, ctx) {
     </div>`;
 
   mountSearch(root.querySelector('[data-search-input]'), async (c) => {
-    if (await ensureLead()) ctx.navigate(`#/canal/${c.id}`);
+    if (await ensureAuth()) ctx.navigate(`#/canal/${c.id}`);
   });
 
   /* ------------------------------------------------------------ favoritos */
@@ -103,13 +103,12 @@ export default async function discover(root, _params, ctx) {
   root.addEventListener('click', async (e) => {
     const tile = e.target.closest('[data-open]');
     if (!tile) return;
-    if (await ensureLead()) ctx.navigate(`#/canal/${tile.dataset.open}`);
+    if (await ensureAuth()) ctx.navigate(`#/canal/${tile.dataset.open}`);
   });
 }
 
 /** Cartão compacto de canal, usado em favoritos e no histórico. */
 function channelTile(c, isFavorite) {
-  const noMes = store.alreadySearched(c.id);
   return `
     <button class="card" data-open="${esc(c.id)}" style="
       padding:14px;display:flex;align-items:center;gap:12px;text-align:left;
@@ -123,6 +122,6 @@ function channelTile(c, isFavorite) {
         </span>
       </span>
       ${isFavorite ? `<span style="color:var(--yt-500)">${icon('star')}</span>` : ''}
-      ${noMes && !isFavorite ? '<span class="chip chip-pos" style="height:19px;font-size:10px">no mês</span>' : ''}
+      ${!isFavorite ? '<span class="chip chip-pos" style="height:19px;font-size:10px">já analisado</span>' : ''}
     </button>`;
 }

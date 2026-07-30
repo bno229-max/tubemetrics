@@ -8,11 +8,12 @@
  */
 
 import * as store from './store.js';
-import { icon, qs, brandMark, flagBR } from './ui.js';
+import { icon, qs, brandMark, flagBR, toast } from './ui.js';
 import { redrawAll } from './charts.js';
 import { mountSearch } from './views/searchbox.js';
 import { can, PLAN_BY_ID } from './plans.js';
-import { int } from './format.js';
+import { int, esc } from './format.js';
+import { signOutAccount, fetchMe } from './api.js';
 
 /* ------------------------------------------------------------------ rotas */
 
@@ -27,6 +28,8 @@ const ROUTES = [
   // volta para cá anexando o resultado do login como query no próprio hash.
   { path: /^#\/criador\/?(?:\?.*)?$/, load: () => import('./views/creator.js'), nav: 'criador', title: 'Dashboard do Criador' },
   { path: /^#\/planos\/?$/, load: () => import('./views/pricing.js'), nav: 'planos', title: 'Planos' },
+  // Link vindo por e-mail — precisa funcionar mesmo sem o app já ter sido aberto.
+  { path: /^#\/redefinir-senha\/?(?:\?.*)?$/, shell: false, load: () => import('./views/auth.js'), title: 'Redefinir senha' },
 ];
 
 const NAV = [
@@ -104,18 +107,30 @@ function paintNav(activeId) {
       }).join('')}
     </div>`).join('');
 
-  const { used, limit } = store.searchQuota();
-  const planName = PLAN_BY_ID[s.plan].name;
-
-  qs('[data-plan-box]').innerHTML = `
-    <div class="row">
-      <span class="name">Plano ${planName}</span>
-      ${s.plan === 'creator' ? '<span class="chip chip-pos">Ativo</span>' : '<a href="#/planos" class="chip chip-brand">Fazer upgrade</a>'}
-    </div>
-    ${limit === Infinity
-      ? '<div class="hint" style="margin-top:8px">Análises ilimitadas</div>'
-      : `<div class="meter"><i style="width:${Math.min(100, (used / limit) * 100)}%"></i></div>
-         <div class="hint">${int(Math.min(used, limit))} de ${int(limit)} análises usadas</div>`}`;
+  const planBox = qs('[data-plan-box]');
+  if (!s.user) {
+    planBox.innerHTML = `
+      <div class="row"><span class="name">Visitante</span></div>
+      <div class="hint" style="margin-top:2px">Crie uma conta pra analisar canais.</div>
+      <button class="btn btn-sm btn-primary" style="width:100%;margin-top:8px" data-open-auth>Entrar / Criar conta</button>`;
+  } else {
+    const planName = PLAN_BY_ID[s.plan].name;
+    const q = s.quota;
+    planBox.innerHTML = `
+      <div class="row">
+        <span class="name">${esc(s.user.name)}</span>
+        <button class="btn btn-ghost btn-icon btn-sm" data-signout title="Sair" aria-label="Sair">${icon('logout')}</button>
+      </div>
+      <div class="hint" style="margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.user.email)}</div>
+      <div class="row" style="margin-top:10px">
+        <span class="name">Plano ${planName}</span>
+        ${s.plan === 'creator' ? '<span class="chip chip-pos">Ativo</span>' : '<a href="#/planos" class="chip chip-brand">Fazer upgrade</a>'}
+      </div>
+      ${!q || q.limit === Infinity
+        ? '<div class="hint" style="margin-top:8px">Análises ilimitadas</div>'
+        : `<div class="meter"><i style="width:${Math.min(100, (q.used / q.limit) * 100)}%"></i></div>
+           <div class="hint">${int(Math.min(q.used, q.limit))} de ${int(q.limit)} análises usadas${q.lifetime ? ' (vitalícias)' : ''}</div>`}`;
+  }
 
   document.querySelectorAll('[data-theme-toggle]').forEach((b) => {
     b.innerHTML = icon(s.theme === 'dark' ? 'moon' : 'sun');
@@ -179,8 +194,8 @@ async function render() {
 
 function wireShell() {
   mountSearch(qs('[data-top-search]'), async (c) => {
-    const { ensureLead } = await import('./views/signup.js');
-    if (await ensureLead()) navigate(`#/canal/${c.id}`);
+    const { ensureAuth } = await import('./views/auth.js');
+    if (await ensureAuth()) navigate(`#/canal/${c.id}`);
   });
   qs('[data-nav-open]').addEventListener('click', () => document.body.classList.add('nav-open'));
   qs('[data-nav-close]').addEventListener('click', () => document.body.classList.remove('nav-open'));
@@ -224,6 +239,21 @@ document.addEventListener('click', (e) => {
     store.set({ goal: { subscribers: null, deadline: null } });
     render();
   }
+
+  const openAuthBtn = e.target.closest('[data-open-auth]');
+  if (openAuthBtn) {
+    import('./views/auth.js').then(({ ensureAuth }) => ensureAuth());
+    return;
+  }
+
+  const signoutBtn = e.target.closest('[data-signout]');
+  if (signoutBtn) {
+    signOutAccount().catch(() => {}).finally(() => {
+      store.clearUser();
+      toast('Você saiu da conta.', 'info');
+      navigate('#/');
+    });
+  }
 });
 
 // Atalho: "/" foca a busca, como em ferramentas de dashboard.
@@ -236,10 +266,19 @@ document.addEventListener('keydown', (e) => {
 
 window.addEventListener('hashchange', render);
 
+// A conta pode logar (modal de auth) ou trocar de plano fora do fluxo normal
+// de rota — repinta a barra lateral sempre que o estado mudar, se ela existir.
+store.subscribe(() => {
+  if (shellMounted) paintNav(ROUTES.find((r) => r.path.test(location.hash || '#/'))?.nav);
+});
+
 /* -------------------------------------------------------------- bootstrap */
 
 store.applyTheme(store.get().theme);
 render();
+
+// Hidrata a conta logada, se houver sessão — 401 é só "ninguém logado ainda".
+fetchMe().then((body) => { if (body) store.setUser(body.user, body.quota); }).catch(() => {});
 
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   window.addEventListener('load', () => {

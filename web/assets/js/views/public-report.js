@@ -1,6 +1,6 @@
 /** public-report.js — Relatório de análise pública de um canal (Modo A). */
 
-import { getPublicReport } from '../api.js';
+import { getPublicReport, consumeQuota } from '../api.js';
 import {
   icon, avatar, kpi, insightCard, sectionCard, segment, videoCell, barCell, gate, toast, emptyState,
 } from '../ui.js';
@@ -11,7 +11,7 @@ import {
 } from '../format.js';
 import { estimateEarnings, recentViewsByFormat, RPM_PRESETS, engagementTier, videoPerformanceRadar } from '../engine.js';
 import { can, limitOf, requiredPlan, PLAN_BY_ID } from '../plans.js';
-import { ensureLead } from './signup.js';
+import { ensureAuth } from './auth.js';
 import * as store from '../store.js';
 
 const TABS = [
@@ -23,20 +23,34 @@ const TABS = [
 
 export default async function publicReport(root, params, ctx) {
   const { id, tab = 'visao' } = params;
-  const s = store.get();
 
-  // Cadastro é a porta de entrada de qualquer análise.
-  if (!store.hasLead()) {
-    const ok = await ensureLead();
+  // Conta é a porta de entrada de qualquer análise.
+  if (!store.isLoggedIn()) {
+    const ok = await ensureAuth();
     if (!ok) return ctx.navigate('#/descobrir');
   }
 
-  /* --- cota mensal do plano ------------------------------------------- */
-  const quota = store.searchQuota();
-  const isNew = !store.alreadySearched(id);
-  if (quota.limit !== Infinity && isNew && quota.remaining <= 0) {
-    root.innerHTML = quotaWall(quota.limit);
-    return;
+  /* --- cota checada e gasta no servidor, não mais no navegador --------- */
+  try {
+    const res = await consumeQuota(id);
+    if (ctx.stale()) return;
+    store.set({ quota: res.quota });
+  } catch (err) {
+    if (ctx.stale()) return;
+    if (err.status === 401) {
+      // A sessão expirou entre o hydrate e agora — pede login e tenta de novo.
+      store.clearUser();
+      const ok = await ensureAuth();
+      if (ctx.stale()) return;
+      if (!ok) return ctx.navigate('#/descobrir');
+      return publicReport(root, params, ctx);
+    }
+    if (err.code === 'quotaExceeded') {
+      root.innerHTML = quotaWall(store.get().quota);
+      return;
+    }
+    toast(err.message, 'error');
+    return ctx.navigate('#/descobrir');
   }
 
   root.innerHTML = `<div class="page">${loadingSkeleton()}</div>`;
@@ -48,7 +62,6 @@ export default async function publicReport(root, params, ctx) {
     return;
   }
 
-  store.consumeSearch(id);
   store.pushHistory(report.channel);
 
   const { channel: ch, analysis: a } = report;
@@ -858,12 +871,17 @@ function loadingSkeleton() {
 }
 
 function quotaWall(quota) {
+  const limit = quota?.limit ?? 3;
+  const lifetime = quota?.lifetime ?? true;
   return `<div class="page"><div class="card" style="padding:40px;text-align:center;max-width:520px;margin:40px auto">
     <div style="width:44px;height:44px;border-radius:12px;background:var(--yt-soft);color:var(--yt-500);display:grid;place-items:center;margin:0 auto 16px">${icon('lock')}</div>
-    <h2 style="font-size:19px;font-weight:660;letter-spacing:-.02em">Você usou suas ${int(quota)} análises deste mês</h2>
+    <h2 style="font-size:19px;font-weight:660;letter-spacing:-.02em">Você usou suas ${int(limit)} análises ${lifetime ? 'do plano Grátis' : 'deste mês'}</h2>
     <p class="txt-2 fs13" style="margin-top:8px;line-height:1.55">
-      Seu plano permite ${int(quota)} ${quota === 1 ? 'canal' : 'canais'} por mês. Os que você já analisou continuam
-      abertos no histórico, sem consumir cota. A cota volta a zerar na virada do mês.
+      ${lifetime
+        ? `O plano Grátis inclui ${int(limit)} análises vitalícias, pra conhecer o produto inteiro. Os canais que
+           você já analisou continuam abertos no histórico, sem consumir cota. Pra analisar novos canais, assine um plano.`
+        : `Seu plano permite ${int(limit)} ${limit === 1 ? 'canal' : 'canais'} por mês. Os que você já analisou continuam
+           abertos no histórico, sem consumir cota. A cota volta a zerar na virada do mês.`}
     </p>
     <div class="flex g8" style="justify-content:center;margin-top:20px">
       <button class="btn" data-nav="#/descobrir">Voltar</button>

@@ -1,9 +1,9 @@
 /** compare.js — Comparação lado a lado de canais reais. */
 
-import { getPublicReport } from '../api.js';
+import { getPublicReport, consumeQuota } from '../api.js';
 import { icon, avatar, sectionCard, gate, emptyState, toast } from '../ui.js';
 import { mountSearch } from './searchbox.js';
-import { ensureLead } from './signup.js';
+import { ensureAuth } from './auth.js';
 import { lineChart, barChart, SERIES_COLORS } from '../charts.js';
 import { esc, compact, int, dec, pct, monthLabel } from '../format.js';
 import { can, limitOf, requiredPlan, PLAN_BY_ID } from '../plans.js';
@@ -80,7 +80,7 @@ export default async function compare(root, _params, ctx) {
   };
 
   mountSearch(root.querySelector('[data-search-input]'), async (c) => {
-    if (!(await ensureLead())) return;
+    if (!(await ensureAuth())) return;
     add(c.id, c.title);
   });
 
@@ -116,12 +116,29 @@ export default async function compare(root, _params, ctx) {
     return;
   }
 
-  // Comparar é analisar: o canal entra na cota e no histórico como qualquer
-  // relatório. `consumeSearch` já ignora quem foi analisado neste mês.
-  validos.forEach((r) => {
-    store.consumeSearch(r.channel.id);
+  // Comparar é analisar: cada canal entra na cota da conta, como qualquer
+  // relatório — o servidor já ignora quem foi analisado antes (não gasta de novo).
+  for (const r of validos) {
+    try {
+      const res = await consumeQuota(r.channel.id);
+      if (ctx.stale()) return;
+      store.set({ quota: res.quota });
+    } catch (err) {
+      if (ctx.stale()) return;
+      if (err.code === 'quotaExceeded') {
+        body.innerHTML = emptyState({
+          title: 'Sua cota de análises acabou',
+          note: 'Assine um plano para continuar comparando novos canais.',
+          iconName: 'lock',
+          action: '<button class="btn btn-primary" data-nav="#/planos">Ver planos</button>',
+        });
+        return;
+      }
+      toast(err.message, 'error');
+      return;
+    }
     store.pushHistory(r.channel);
-  });
+  }
 
   renderComparison(body, validos);
 }

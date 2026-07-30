@@ -3,7 +3,7 @@
 import { icon, avatar, toast, brandMark } from '../ui.js';
 import { mountSearch } from './searchbox.js';
 import { topChannels } from '../api.js';
-import { ensureLead } from './signup.js';
+import { ensureAuth } from './auth.js';
 import { featureMatrix } from './feature-matrix.js';
 import { PLANS } from '../plans.js';
 import { esc, money } from '../format.js';
@@ -146,5 +146,5 @@ export default async function landing(root, _params, ctx) {
 
 /** Cadastro é exigido antes de abrir qualquer relatório. */
 async function openChannel(ctx, id) {
-  if (await ensureLead()) ctx.navigate(`#/canal/${id}`);
+  if (await ensureAuth()) ctx.navigate(`#/canal/${id}`);
 }
