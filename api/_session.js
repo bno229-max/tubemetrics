@@ -153,36 +153,10 @@ export async function deleteSession(sessionId) {
   await db.collection('sessions').doc(sessionId).delete().catch(() => {});
 }
 
-/* ---------------------------------------------------- sessão de conta -- */
-
-/**
- * Sessão da CONTA (login com senha), separada da sessão OAuth acima — uma
- * pessoa pode estar logada na conta sem nunca ter conectado um canal do
- * YouTube. Mesmo padrão de ponteiro aleatório em cookie `httpOnly`, mas sem
- * criptografia: aqui não há refresh token para proteger, só o `uid` (que já
- * é o e-mail normalizado, não um segredo).
+/*
+ * Não há "sessão de conta" aqui de propósito: quem autentica o usuário é o
+ * Firebase Authentication, e o navegador prova quem é mandando o ID token
+ * dele em cada requisição (ver `verifyRequest` em `_auth.js`). As sessões
+ * acima existem só para o canal do YouTube conectado via OAuth, que é outra
+ * coisa — guardam um refresh token do Google que precisa ficar cifrado.
  */
-export async function createUserSession(uid) {
-  const db = firestore();
-  if (!db) throw new Error('Firestore não configurado.');
-
-  const sessionId = randomToken(24);
-  await db.collection('userSessions').doc(sessionId).set({
-    uid,
-    createdAt: FieldValue.serverTimestamp(),
-  });
-  return sessionId;
-}
-
-export async function readUserSession(sessionId) {
-  const db = firestore();
-  if (!db || !sessionId) return null;
-  const doc = await db.collection('userSessions').doc(sessionId).get();
-  return doc.exists ? doc.data() : null;
-}
-
-export async function deleteUserSession(sessionId) {
-  const db = firestore();
-  if (!db || !sessionId) return;
-  await db.collection('userSessions').doc(sessionId).delete().catch(() => {});
-}

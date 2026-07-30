@@ -19,6 +19,9 @@ export default function handler(req, res) {
   const firestore = storageReady();
   const oauthConfigured = !!(googleClientId() && googleClientSecret() && oauthRedirectUri());
   const sessionReady = sessionStoreReady();
+  // Contas de usuário exigem as duas pontas: a chave Web (navegador fala com o
+  // Firebase Auth) e o Admin SDK (servidor confere o token que voltou).
+  const authConfigured = !!process.env.FIREBASE_WEB_API_KEY && firestore;
 
   json(
     res,
@@ -32,11 +35,14 @@ export default function handler(req, res) {
       oauthConfigured,
       sessionSecretConfigured: sessionReady,
       creatorDashboardReady: oauthConfigured && sessionReady,
+      authConfigured,
       message: !hasKey
         ? 'Falta configurar YOUTUBE_API_KEY nas variáveis de ambiente da Vercel.'
-        : firestore
-          ? 'Backend pronto, com histórico de crescimento ativo.'
-          : 'Backend pronto. Rankings de crescimento aguardam a configuração do Firestore.',
+        : !authConfigured
+          ? 'Backend pronto, mas contas de usuário aguardam FIREBASE_WEB_API_KEY.'
+          : firestore
+            ? 'Backend pronto, com contas e histórico de crescimento ativos.'
+            : 'Backend pronto. Rankings de crescimento aguardam a configuração do Firestore.',
       region: process.env.VERCEL_REGION || 'local',
       deployedAt: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) || null,
     },

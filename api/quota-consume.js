@@ -3,33 +3,32 @@
  *
  * Roda ANTES de `/api/channel`, que fica cacheado no CDN e é compartilhado
  * entre usuários — a cota não pode viver ali, porque uma resposta servida do
- * cache nem chega a executar a function (ver `_http.js`/`CACHE_CHANNEL`).
+ * cache nem chega a executar a função (ver `CACHE_CHANNEL` em `_http.js`).
  *
- * Canal já analisado antes pela mesma conta não gasta cota de novo (mesma
- * regra que já existia em `store.js`, agora no servidor).
+ * É aqui que o plano Grátis efetivamente trava nas 3 análises: como a conta
+ * mora no Firebase e a contagem no Firestore, limpar o navegador não devolve
+ * nada — que era o furo do cadastro anterior, guardado em localStorage.
  */
 
-import { parseCookies, readUserSession } from './_session.js';
-import { findUserById, consumeSearch } from './_auth.js';
+import { verifyRequest, findUserByUid, consumeSearch, getQuota } from './_auth.js';
 import { json, fail, NO_CACHE } from './_http.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return fail(res, 405, 'methodNotAllowed', 'Use POST.');
 
-  const cookies = parseCookies(req);
-  const session = cookies.tm_uid ? await readUserSession(cookies.tm_uid) : null;
-  if (!session) return fail(res, 401, 'notLoggedIn', 'Faça login para analisar um canal.');
+  const account = await verifyRequest(req);
+  if (!account) return fail(res, 401, 'notLoggedIn', 'Crie sua conta para analisar canais.');
 
   const channelId = String((req.body || {}).channelId || '').trim();
   if (!channelId) return fail(res, 400, 'missingChannelId', 'Canal não informado.');
 
-  const user = await findUserById(session.uid);
-  if (!user) return fail(res, 401, 'notLoggedIn', 'Conta não encontrada.');
+  const user = await findUserByUid(account.uid);
+  if (!user) return fail(res, 400, 'needsProfile', 'Complete seu cadastro para analisar canais.');
 
   const quota = await consumeSearch(user, channelId);
   if (!quota) {
     return fail(res, 403, 'quotaExceeded', 'Você usou todas as análises do seu plano.', {
-      lifetime: user.plan === 'free',
+      quota: getQuota(user),
     });
   }
 

@@ -12,9 +12,11 @@
  * correto: no máximo uma visita fica desatualizada.
  */
 
-// v6: conta de verdade (login/cadastro/senha) substitui o cadastro de
-// localStorage — `signup.js` saiu do SHELL, `auth.js` entrou.
-const CACHE = 'tubemetrics-v6';
+// v7: contas no Firebase Authentication — `signup.js` saiu do SHELL, entraram
+// `auth.js` e `firebase-auth.js`. O SDK do Firebase vem de outro domínio
+// (gstatic.com) e por isso nem passa por aqui: o handler de fetch abaixo já
+// ignora tudo que não é da mesma origem.
+const CACHE = 'tubemetrics-v7';
 
 const SHELL = [
   './',
@@ -27,6 +29,7 @@ const SHELL = [
   './assets/js/config.js',
   './assets/js/charts.js',
   './assets/js/engine.js',
+  './assets/js/firebase-auth.js',
   './assets/js/format.js',
   './assets/js/mock-data.js',
   './assets/js/plans.js',

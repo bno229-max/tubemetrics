@@ -28,6 +28,8 @@ const DEFAULTS = {
   user: null,
   /** Cota vinda do servidor: `{ used, limit, remaining, lifetime }`. */
   quota: null,
+  /** Autenticado no Firebase, mas ainda sem nome/telefone: falta o 1º acesso. */
+  needsProfile: false,
   /** Canais analisados, com dados de exibição para o histórico. */
   history: [],
   favorites: [],
@@ -86,7 +88,7 @@ export function setUser(user, quota) {
 }
 
 export function clearUser() {
-  set({ user: null, quota: null, plan: 'free' });
+  set({ user: null, quota: null, plan: 'free', needsProfile: false });
 }
 
 /* --------------------------------------------------- histórico de pesquisa */

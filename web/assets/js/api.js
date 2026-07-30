@@ -53,18 +53,36 @@ async function request(path, params) {
   }
 }
 
-/** POST com corpo JSON — usado pelas rotas de conta, que não são cacheáveis. */
-async function postJson(path, payload) {
+/**
+ * `Authorization: Bearer <idToken>` quando há alguém logado.
+ *
+ * O import é dinâmico de propósito: `firebase-auth.js` puxa o SDK do Firebase,
+ * e um import estático aqui faria toda visita baixar isso — inclusive a de
+ * quem só quer ver a página inicial.
+ */
+async function authHeader() {
+  const { idToken } = await import('./firebase-auth.js');
+  const token = await idToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+/** Requisição de conta: sempre autenticada, nunca cacheável. */
+async function accountRequest(path, { method = 'POST', payload } = {}) {
   const res = await fetch(new URL(`${CONFIG.apiBase}${path}`, location.origin), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify(payload || {}),
+    method,
+    headers: {
+      Accept: 'application/json',
+      ...(payload ? { 'Content-Type': 'application/json' } : {}),
+      ...(await authHeader()),
+    },
+    body: payload ? JSON.stringify(payload) : undefined,
   });
   const body = await res.json().catch(() => null);
   if (!res.ok) {
     const err = new Error(body?.error?.message || `Backend respondeu ${res.status}`);
     err.code = body?.error?.code || String(res.status);
     err.status = res.status;
+    err.body = body;
     throw err;
   }
   return body;
@@ -276,28 +294,30 @@ export async function disconnectGoogleAccount() {
 /* ---------------------------------------------------------------- conta */
 
 /**
- * `GET /api/auth/me` — quem está logado, se alguém estiver. 401 vira `null`,
- * o mesmo sinal de "sem sessão" que `getCreatorReport()` já usa pro 401 do
- * dashboard do criador — aqui significa só "ninguém logado ainda".
+ * `GET /api/auth/me` — perfil e cota de quem está logado. 401 vira `null`, o
+ * mesmo sinal de "sem sessão" que `getCreatorReport()` já usa — aqui significa
+ * apenas "ninguém logado ainda".
+ *
+ * Quando a conta existe no Firebase mas ainda não tem perfil nosso, volta
+ * `{ user: null, needsProfile: true }` — é o 1º acesso, que ainda precisa
+ * informar nome e telefone.
  */
 export async function fetchMe() {
   try {
-    return await request('/auth/me', {});
+    return await accountRequest('/auth/me', { method: 'GET' });
   } catch (err) {
     if (err.status === 401) return null;
     throw err;
   }
 }
 
-export const registerAccount = (data) => postJson('/auth/register', data);
-export const loginAccount = (data) => postJson('/auth/login', data);
-export const signOutAccount = () => postJson('/auth/signout', {});
-export const forgotPassword = (email) => postJson('/auth/forgot-password', { email });
-export const resetPassword = (token, password) => postJson('/auth/reset-password', { token, password });
-export const setAccountPlan = (plan) => postJson('/auth/set-plan', { plan });
+/** Completa o 1º acesso: nome e telefone, que o Firebase Auth não guarda. */
+export const saveProfile = (data) => accountRequest('/auth/me', { payload: data });
+
+export const setAccountPlan = (plan) => accountRequest('/auth/set-plan', { payload: { plan } });
 
 /** Gasta 1 análise da conta logada — chamado antes de `getPublicReport`. */
-export const consumeQuota = (channelId) => postJson('/quota-consume', { channelId });
+export const consumeQuota = (channelId) => accountRequest('/quota-consume', { payload: { channelId } });
 
 /** Estado do backend — a interface usa para mostrar a origem dos dados. */
 export async function backendHealth() {

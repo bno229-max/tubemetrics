@@ -1,233 +1,180 @@
 /**
- * _auth.js — Conta de usuário: senha, unicidade e CRUD no Firestore.
+ * _auth.js — Conta do usuário: identidade no Firebase Auth, dados no Firestore.
  *
- * Isto é a identidade de QUEM está usando o produto (nome, telefone, e-mail,
- * senha, plano, cota). É um conceito diferente da sessão OAuth em
- * `_session.js` (que guarda o canal do YouTube conectado) — uma conta pode
- * existir sem nunca conectar um canal, e vice-versa não faz sentido.
+ * ## Divisão de responsabilidades
  *
- * ## Por que e-mail é o ID do documento
+ * O **Firebase Authentication** cuida de tudo que envolve credencial: criar a
+ * conta, guardar a senha (que nunca passa por aqui), garantir e-mail único,
+ * enviar o e-mail de redefinição de senha e o de verificação. Nada disso é
+ * código nosso — é o ecossistema do Google fazendo o que já faz bem.
  *
- * `users/{emailNormalizado}` em vez de um UID gerado + índice por e-mail: a
- * unicidade fica de graça (um `.create()` que já existe simplesmente falha
- * com `ALREADY_EXISTS`), sem precisar de transação nem de índice composto —
- * mesma lógica que `_store.js` já usa pra evitar índice em `snapshots`.
+ * O **Firestore** guarda o que é do produto e o Firebase Auth não tem onde
+ * pôr: nome, telefone, plano e cota de análises.
  *
- * ## Por que scrypt em vez de bcrypt
+ *   users/{uid}   ← uid é o do Firebase Auth, não um id nosso
+ *     { name, email, phone, plan, searchesUsedLifetime, searchedChannelIds,
+ *       searchMonth, searchedIdsThisMonth, createdAt }
  *
- * `node:crypto` já traz `scrypt` nativamente — nenhuma dependência nova, e
- * este projeto já usa o mesmo módulo (`createHash`/`createCipheriv`) em
- * `_session.js`. bcrypt exigiria um binário nativo compilado, mais um ponto
- * de falha numa function serverless.
+ * ## Como o servidor sabe quem está falando
+ *
+ * O navegador manda `Authorization: Bearer <idToken>` em cada requisição, e
+ * `verifyIdToken()` confere a assinatura do Google. Não há sessão nossa, nem
+ * cookie nosso, nem token nosso para vazar — o SDK do Firebase renova o token
+ * sozinho no cliente a cada hora.
  */
 
-import { scrypt, randomBytes, timingSafeEqual } from 'node:crypto';
-import { promisify } from 'node:util';
 import { FieldValue } from 'firebase-admin/firestore';
-import { firestore } from './_firebase.js';
-import { limitOf } from '../web/assets/js/plans.js';
-import { randomToken } from './_session.js';
+import { firestore, auth } from './_firebase.js';
+import { searchLimit } from './_plans.js';
 
-const scryptAsync = promisify(scrypt);
-const KEY_LEN = 64;
-
-export const normalizeEmail = (email) => (email || '').trim().toLowerCase();
-
-/** Mantém só dígitos — telefones brasileiros com/sem máscara viram a mesma chave. */
+/** Mantém só dígitos — telefone com ou sem máscara vira a mesma chave. */
 export const normalizePhone = (phone) => (phone || '').replace(/\D/g, '');
-
-export async function hashPassword(password) {
-  const salt = randomBytes(16).toString('hex');
-  const derived = await scryptAsync(password, salt, KEY_LEN);
-  return `scrypt:${salt}:${derived.toString('hex')}`;
-}
-
-export async function verifyPassword(password, stored) {
-  const parts = (stored || '').split(':');
-  if (parts.length !== 3 || parts[0] !== 'scrypt') return false;
-  const [, salt, hashHex] = parts;
-  const derived = await scryptAsync(password, salt, KEY_LEN);
-  const stored_ = Buffer.from(hashHex, 'hex');
-  // Tamanhos diferentes quebrariam `timingSafeEqual` — trata como "não bate".
-  if (derived.length !== stored_.length) return false;
-  return timingSafeEqual(derived, stored_);
-}
-
-/* ------------------------------------------------------------- usuários -- */
 
 const usersCol = () => firestore()?.collection('users');
 
-export async function findUserByEmail(email) {
-  const col = usersCol();
-  if (!col) return null;
-  const doc = await col.doc(normalizeEmail(email)).get();
-  return doc.exists ? { id: doc.id, ...doc.data() } : null;
-}
-
-export async function findUserByPhone(phone) {
-  const col = usersCol();
-  if (!col) return null;
-  const norm = normalizePhone(phone);
-  if (!norm) return null;
-  const snap = await col.where('phone', '==', norm).limit(1).get();
-  if (snap.empty) return null;
-  const doc = snap.docs[0];
-  return { id: doc.id, ...doc.data() };
-}
-
-export async function findUserById(id) {
-  const col = usersCol();
-  if (!col || !id) return null;
-  const doc = await col.doc(id).get();
-  return doc.exists ? { id: doc.id, ...doc.data() } : null;
-}
-
 /**
- * Cria a conta. Usa `.create()` (não `.set()`) de propósito: `create` falha
- * se o documento já existe, então a unicidade do e-mail vem do próprio
- * Firestore em vez de uma checagem "leia depois escreva" com corrida possível.
- * @returns {Promise<'ok'|'emailTaken'>}
+ * Confere o ID token do cabeçalho e devolve `{ uid, email }`, ou `null`.
+ * Um token inválido/expirado é indistinguível de "ninguém logado" para quem
+ * chama — em ambos os casos a resposta certa é 401.
  */
-export async function createUser({ name, email, phone, passwordHash, ip }) {
-  const col = usersCol();
-  if (!col) throw new Error('Firestore não configurado.');
+export async function verifyRequest(req) {
+  const a = auth();
+  if (!a) return null;
 
-  const id = normalizeEmail(email);
+  const header = req.headers.authorization || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
+  if (!token) return null;
+
   try {
-    await col.doc(id).create({
-      name,
-      email: id,
-      phone: normalizePhone(phone),
-      passwordHash,
-      plan: 'free',
-      searchesUsedLifetime: 0,
-      searchedChannelIds: [],
-      searchMonth: '',
-      searchedIdsThisMonth: [],
-      createdAt: FieldValue.serverTimestamp(),
-      createdIp: ip || null,
-    });
-    return 'ok';
-  } catch (err) {
-    if (err?.code === 6 /* ALREADY_EXISTS */) return 'emailTaken';
-    throw err;
+    const decoded = await a.verifyIdToken(token);
+    return { uid: decoded.uid, email: decoded.email || '' };
+  } catch {
+    return null;
   }
 }
 
-export async function setUserPlan(id, plan) {
+export async function findUserByUid(uid) {
   const col = usersCol();
-  if (!col) return;
-  await col.doc(id).update({ plan });
+  if (!col || !uid) return null;
+  const doc = await col.doc(uid).get();
+  return doc.exists ? { id: doc.id, ...doc.data() } : null;
 }
 
-export async function setUserPassword(id, passwordHash) {
+/** Existe outra conta usando este telefone? (trava contra recadastro em série) */
+export async function phoneTakenBy(phone, exceptUid) {
   const col = usersCol();
-  if (!col) return;
-  await col.doc(id).update({ passwordHash });
-}
+  const norm = normalizePhone(phone);
+  if (!col || !norm) return null;
 
-/** Dados públicos da conta — nunca devolver `passwordHash` ao front. */
-export function publicUser(user) {
-  return { name: user.name, email: user.email, plan: user.plan };
+  const snap = await col.where('phone', '==', norm).limit(2).get();
+  const other = snap.docs.find((d) => d.id !== exceptUid);
+  return other ? other.id : null;
 }
-
-/* -------------------------------------------------------- limite de IP -- */
 
 /**
- * No máximo 5 cadastros por IP por dia. Não impede uma pessoa determinada
- * (proxy, IP dinâmico), mas segura um script simples sem incomodar ninguém
- * fazendo um cadastro legítimo.
+ * Cria o documento de perfil da conta recém-criada no Firebase Auth.
+ * `create()` (e não `set()`) para que uma segunda chamada com o mesmo uid
+ * falhe em vez de zerar silenciosamente a cota já usada.
  */
-export async function checkSignupRate(ip) {
-  const db = firestore();
-  if (!db || !ip) return true;
+export async function createProfile(uid, { name, email, phone }) {
+  const col = usersCol();
+  if (!col) throw new Error('Firestore não configurado.');
 
-  const day = new Date().toISOString().slice(0, 10);
-  const ref = db.collection('signupRate').doc(`${ip}_${day}`);
-  const doc = await ref.get();
-  const count = doc.exists ? doc.data().count : 0;
-  if (count >= 5) return false;
+  const profile = {
+    name: (name || '').trim(),
+    email: (email || '').trim().toLowerCase(),
+    phone: normalizePhone(phone),
+    plan: 'free',
+    searchesUsedLifetime: 0,
+    searchedChannelIds: [],
+    searchMonth: '',
+    searchedIdsThisMonth: [],
+    createdAt: FieldValue.serverTimestamp(),
+  };
 
-  await ref.set({ count: count + 1 }, { merge: true });
-  return true;
+  try {
+    await col.doc(uid).create(profile);
+  } catch (err) {
+    if (err?.code !== 6 /* ALREADY_EXISTS */) throw err;
+  }
+  return { id: uid, ...profile };
 }
 
-export const clientIp = (req) =>
-  (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress || '';
-
-/* --------------------------------------------------- reset de senha -- */
-
-const RESET_MAX_AGE_MS = 60 * 60 * 1000; // 1 hora
-
-export async function createPasswordReset(uid) {
-  const db = firestore();
-  if (!db) return null;
-  const token = randomToken(24);
-  await db.collection('passwordResets').doc(token).set({
-    uid,
-    expiresAt: Date.now() + RESET_MAX_AGE_MS,
-  });
-  return token;
+export async function setUserPlan(uid, plan) {
+  const col = usersCol();
+  if (col) await col.doc(uid).update({ plan });
 }
 
-/** Devolve o `uid` dono do token e já apaga o token (uso único), ou `null` se inválido/expirado. */
-export async function consumePasswordReset(token) {
-  const db = firestore();
-  if (!db || !token) return null;
-  const ref = db.collection('passwordResets').doc(token);
-  const doc = await ref.get();
-  if (!doc.exists) return null;
-
-  const { uid, expiresAt } = doc.data();
-  await ref.delete().catch(() => {});
-  if (!expiresAt || Date.now() > expiresAt) return null;
-  return uid;
-}
+/** O que pode ir para o navegador. */
+export const publicUser = (user) => ({
+  name: user.name,
+  email: user.email,
+  phone: user.phone,
+  plan: user.plan,
+});
 
 /* --------------------------------------------------------------- cota -- */
 
 /**
- * Grátis: 3 análises PARA SEMPRE por conta (não reseta) — é o teto que
- * motivou a conta ter identidade real, então aqui ele é tratado à parte do
- * mecanismo mensal que os planos pagos usam. Planos pagos: mesmo cálculo
- * mensal que `store.js` fazia no navegador, só que agora autoritativo aqui.
+ * Grátis: 3 análises PARA SEMPRE por conta — não reseta. É o teto que faz o
+ * cadastro precisar de identidade real. Planos pagos: cota mensal.
  */
 const currentMonth = () => new Date().toISOString().slice(0, 7);
 
+/**
+ * `limit: null` significa ILIMITADO — e não é escolha estética.
+ *
+ * `Infinity` não sobrevive a `JSON.stringify`: vira `null` no caminho de volta
+ * de qualquer forma. Se devolvêssemos `Infinity` daqui, o navegador receberia
+ * `null` e a comparação `limit === Infinity` do outro lado nunca daria certo,
+ * deixando o plano Creator com uma barra de progresso dividindo por `null`.
+ * Melhor ser explícito na origem do que depender de um acidente do formato.
+ */
 export function getQuota(user) {
-  const limit = limitOf(user.plan, 'searchesPerMonth');
-  if (user.plan === 'free') {
-    const used = user.searchesUsedLifetime || 0;
-    return { used, limit, remaining: limit === Infinity ? Infinity : Math.max(0, limit - used), lifetime: true };
-  }
-  const used = user.searchMonth === currentMonth() ? (user.searchedIdsThisMonth || []).length : 0;
-  return { used, limit, remaining: limit === Infinity ? Infinity : Math.max(0, limit - used), lifetime: false };
+  const raw = searchLimit(user.plan);
+  const unlimited = raw === Infinity;
+  const lifetime = user.plan === 'free';
+  const used = lifetime
+    ? user.searchesUsedLifetime || 0
+    : user.searchMonth === currentMonth() ? (user.searchedIdsThisMonth || []).length : 0;
+
+  return {
+    used,
+    limit: unlimited ? null : raw,
+    remaining: unlimited ? null : Math.max(0, raw - used),
+    lifetime,
+  };
 }
 
 /**
- * Consome 1 análise se o canal for novo pra esta conta. Devolve a cota
- * atualizada (canal já visto antes não gasta de novo), ou `null` se a cota
- * acabou e o canal é novo — quem chama decide como comunicar isso (403).
+ * Gasta 1 análise se o canal for novo para esta conta. Canal já analisado
+ * antes não consome de novo. Devolve a cota atualizada, ou `null` quando o
+ * teto acabou — quem chama transforma isso num 403.
  */
 export async function consumeSearch(user, channelId) {
   const col = usersCol();
   if (!col) return null;
-  const limit = limitOf(user.plan, 'searchesPerMonth');
+  const limit = searchLimit(user.plan);
 
   if (user.plan === 'free') {
     const seen = user.searchedChannelIds || [];
     if (seen.includes(channelId)) return getQuota(user);
     if (limit !== Infinity && seen.length >= limit) return null;
+
     const updated = [...seen, channelId];
-    await col.doc(user.id).update({ searchesUsedLifetime: updated.length, searchedChannelIds: updated });
+    await col.doc(user.id).update({
+      searchesUsedLifetime: updated.length,
+      searchedChannelIds: updated,
+    });
     return getQuota({ ...user, searchesUsedLifetime: updated.length });
   }
 
   const month = currentMonth();
-  const seenThisMonth = user.searchMonth === month ? (user.searchedIdsThisMonth || []) : [];
-  if (seenThisMonth.includes(channelId)) return getQuota({ ...user, searchMonth: month, searchedIdsThisMonth: seenThisMonth });
-  if (limit !== Infinity && seenThisMonth.length >= limit) return null;
-  const updated = [...seenThisMonth, channelId];
+  const seen = user.searchMonth === month ? user.searchedIdsThisMonth || [] : [];
+  if (seen.includes(channelId)) return getQuota({ ...user, searchMonth: month, searchedIdsThisMonth: seen });
+  if (limit !== Infinity && seen.length >= limit) return null;
+
+  const updated = [...seen, channelId];
   await col.doc(user.id).update({ searchMonth: month, searchedIdsThisMonth: updated });
   return getQuota({ ...user, searchMonth: month, searchedIdsThisMonth: updated });
 }

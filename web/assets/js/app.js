@@ -13,7 +13,7 @@ import { redrawAll } from './charts.js';
 import { mountSearch } from './views/searchbox.js';
 import { can, PLAN_BY_ID } from './plans.js';
 import { int, esc } from './format.js';
-import { signOutAccount, fetchMe } from './api.js';
+import { fetchMe } from './api.js';
 
 /* ------------------------------------------------------------------ rotas */
 
@@ -28,8 +28,6 @@ const ROUTES = [
   // volta para cá anexando o resultado do login como query no próprio hash.
   { path: /^#\/criador\/?(?:\?.*)?$/, load: () => import('./views/creator.js'), nav: 'criador', title: 'Dashboard do Criador' },
   { path: /^#\/planos\/?$/, load: () => import('./views/pricing.js'), nav: 'planos', title: 'Planos' },
-  // Link vindo por e-mail — precisa funcionar mesmo sem o app já ter sido aberto.
-  { path: /^#\/redefinir-senha\/?(?:\?.*)?$/, shell: false, load: () => import('./views/auth.js'), title: 'Redefinir senha' },
 ];
 
 const NAV = [
@@ -126,7 +124,7 @@ function paintNav(activeId) {
         <span class="name">Plano ${planName}</span>
         ${s.plan === 'creator' ? '<span class="chip chip-pos">Ativo</span>' : '<a href="#/planos" class="chip chip-brand">Fazer upgrade</a>'}
       </div>
-      ${!q || q.limit === Infinity
+      ${!q || q.limit == null
         ? '<div class="hint" style="margin-top:8px">Análises ilimitadas</div>'
         : `<div class="meter"><i style="width:${Math.min(100, (q.used / q.limit) * 100)}%"></i></div>
            <div class="hint">${int(Math.min(q.used, q.limit))} de ${int(q.limit)} análises usadas${q.lifetime ? ' (vitalícias)' : ''}</div>`}`;
@@ -248,8 +246,8 @@ document.addEventListener('click', (e) => {
 
   const signoutBtn = e.target.closest('[data-signout]');
   if (signoutBtn) {
-    signOutAccount().catch(() => {}).finally(() => {
-      store.clearUser();
+    import('./views/auth.js').then(async ({ signOut }) => {
+      await signOut();
       toast('Você saiu da conta.', 'info');
       navigate('#/');
     });
@@ -277,8 +275,26 @@ store.subscribe(() => {
 store.applyTheme(store.get().theme);
 render();
 
-// Hidrata a conta logada, se houver sessão — 401 é só "ninguém logado ainda".
-fetchMe().then((body) => { if (body) store.setUser(body.user, body.quota); }).catch(() => {});
+/**
+ * Restaura a conta, se houver sessão salva.
+ *
+ * `hasStoredSession()` primeiro, para não baixar o SDK do Firebase na visita
+ * de quem nunca logou. Depois `whenAuthReady()`, porque o SDK precisa validar
+ * a sessão salva antes de `fetchMe()` ter um token para mandar.
+ */
+(async () => {
+  const fb = await import('./firebase-auth.js');
+  if (!fb.hasStoredSession()) return;
+
+  await fb.whenAuthReady();
+  const me = await fetchMe();
+  if (!me) return;
+
+  if (me.user) store.setUser(me.user, me.quota);
+  // Autenticado, mas o cadastro parou no meio: `ensureAuth()` retoma no passo
+  // que falta em vez de mandar a pessoa fazer login de novo.
+  else if (me.needsProfile) store.set({ needsProfile: true });
+})().catch(() => {});
 
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   window.addEventListener('load', () => {

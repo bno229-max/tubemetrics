@@ -20,7 +20,7 @@ export default async function discover(root, _params, ctx) {
             <h1>Descobrir canais</h1>
           </div>
           <div class="actions">
-            ${!quota ? '' : quota.limit === Infinity
+            ${!quota ? '' : quota.limit == null
               ? '<span class="chip chip-pos">Análises ilimitadas</span>'
               : `<span class="chip ${quota.remaining === 0 ? 'chip-neg' : quota.remaining <= 2 ? 'chip-warn' : ''}">
                    ${int(quota.remaining)} ${quota.remaining === 1 ? 'análise restante' : 'análises restantes'}${quota.lifetime ? '' : ' neste mês'}</span>`}

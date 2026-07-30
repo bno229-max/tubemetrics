@@ -1,15 +1,21 @@
 rules_version = '2';
 
-// O Firestore do TubeMetrics guarda apenas o histórico diário dos canais:
-// a coleção `tracked` (quem é monitorado) e `snapshots` (o retrato de cada dia).
+// O Firestore do TubeMetrics guarda:
+//   tracked/  + snapshots/  → histórico diário dos canais
+//   users/    → perfil da conta (nome, telefone, plano) e cota de análises
+//   sessions/ → refresh token cifrado do canal conectado via OAuth
 //
 // Nada disso é lido pelo navegador. Quem escreve e lê é a Serverless Function
 // da Vercel, usando a conta de serviço do Admin SDK — que passa POR CIMA destas
 // regras por definição. Portanto negar tudo aqui não é um "TODO": é a
 // configuração correta e final para esta etapa.
 //
-// Se um dia o front for ler Firestore direto, este arquivo precisa mudar junto,
-// e aí a regra tem que checar autenticação e plano do usuário.
+// `users/` é justamente onde a regra importa mais: é lá que mora a contagem de
+// análises já gastas. Se o navegador pudesse escrever ali, o limite do plano
+// Grátis viraria enfeite — a cota só vale porque só o servidor a altera.
+//
+// Firebase Authentication não passa por este arquivo: senha e sessão são
+// responsabilidade do próprio serviço de Auth, não do Firestore.
 service cloud.firestore {
   match /databases/{database}/documents {
     match /{document=**} {

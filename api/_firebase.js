@@ -10,6 +10,7 @@
 
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { getAuth } from 'firebase-admin/auth';
 
 const PROJECT_ID = process.env.FIREBASE_PROJECT_ID || '';
 const CLIENT_EMAIL = process.env.FIREBASE_CLIENT_EMAIL || '';
@@ -27,18 +28,33 @@ export const firestoreReady = () => !!(PROJECT_ID && CLIENT_EMAIL && PRIVATE_KEY
 
 let db = null;
 
-/** Reaproveita a app e o Firestore entre invocações quentes da mesma instância. */
-export function firestore() {
+/** A app do Admin SDK, compartilhada por Firestore e Authentication. */
+function adminApp() {
   if (!firestoreReady()) return null;
-  if (db) return db;
-
-  const app = getApps().length
+  return getApps().length
     ? getApps()[0]
     : initializeApp({ credential: cert({ projectId: PROJECT_ID, clientEmail: CLIENT_EMAIL, privateKey: PRIVATE_KEY }) });
+}
+
+/** Reaproveita a app e o Firestore entre invocações quentes da mesma instância. */
+export function firestore() {
+  const app = adminApp();
+  if (!app) return null;
+  if (db) return db;
 
   db = getFirestore(app);
   // Campo `undefined` em qualquer documento derruba a escrita inteira; ignorar
   // é mais seguro que confiar que toda origem preencheu todos os campos.
   try { db.settings({ ignoreUndefinedProperties: true }); } catch { /* já configurado */ }
   return db;
+}
+
+/**
+ * Firebase Authentication (lado servidor) — usado só para conferir o ID token
+ * que o navegador manda. Quem cria conta, guarda senha e envia o e-mail de
+ * redefinição é o próprio Firebase; aqui só verificamos quem é a pessoa.
+ */
+export function auth() {
+  const app = adminApp();
+  return app ? getAuth(app) : null;
 }
