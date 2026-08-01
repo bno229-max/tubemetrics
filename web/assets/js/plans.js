@@ -80,7 +80,7 @@ export const PLANS = [
   {
     id: 'starter',
     name: 'Starter',
-    price: 49.9,
+    price: 37.9,
     featured: true,
     tagline: 'Para quem publica toda semana e decide com dado.',
     highlights: [
@@ -99,7 +99,7 @@ export const PLANS = [
   {
     id: 'pro',
     name: 'Pro',
-    price: 97.9,
+    price: 77.9,
     tagline: 'Para redes de canais, agências e times.',
     highlights: [
       'Tudo do plano Starter',

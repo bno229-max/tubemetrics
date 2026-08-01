@@ -357,7 +357,7 @@ e `limitOf(plano, limite)`. Nenhuma tela decide sozinha o que mostrar.
 
 | | Grátis | Starter | Pro | Creator |
 | --- | --- | --- | --- | --- |
-| Preço/mês | R$ 0 | R$ 49,90 | R$ 97,90 | R$ 197,90 |
+| Preço/mês | R$ 0 | R$ 37,90 | R$ 77,90 | R$ 197,90 |
 | Análises de canal por mês | 3 | 50 | 120 | ilimitado |
 | Análise pública + nota do canal | ✓ | ✓ | ✓ | ✓ |
 | Canais favoritos | — | 5 | 15 | ilimitado |
