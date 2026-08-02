@@ -27,8 +27,10 @@ const ROUTES = [
   // Tolerante a `?conectado=1` / `?erro=...`: o callback do OAuth do Google
   // volta para cá anexando o resultado do login como query no próprio hash.
   // `?canal=` escolhe qual canal conectado abrir; `?conectado=1` / `?erro=`
-  // são o retorno do callback do OAuth do Google.
-  { path: /^#\/criador\/?(?:\?(.*))?$/, load: () => import('./views/creator.js'), nav: 'criador', title: 'Dashboard do Criador', params: (m) => ({ canal: new URLSearchParams(m[1] || '').get('canal') }) },
+  // são o retorno do callback do OAuth do Google. Nenhum dos dois precisa de
+  // regex especial aqui: o roteador já corta a query antes de casar a rota,
+  // e `creator.js` lê os dois direto de `location.hash`, como já fazia.
+  { path: /^#\/criador\/?$/, load: () => import('./views/creator.js'), nav: 'criador', title: 'Dashboard do Criador' },
   { path: /^#\/planos\/?$/, load: () => import('./views/pricing.js'), nav: 'planos', title: 'Planos' },
 ];
 
@@ -156,7 +158,17 @@ let renderToken = 0;
 const makeCtx = (token) => ({ navigate, stale: () => token !== renderToken });
 
 async function render() {
-  const hash = location.hash || '#/';
+  /*
+   * A query (`?assinatura=sucesso`, `?conectado=1`, `?canal=UC...`) nunca deve
+   * decidir qual rota bate — só o caminho antes dela. Sem este corte, uma
+   * rota como `/planos` (regex simples, sem previsão de query) caía no
+   * fallback (a landing) sempre que alguém voltava de um redirecionamento
+   * externo com parâmetros no hash, como o retorno do Checkout do Stripe.
+   * Views que precisam da query (`pricing.js`, `creator.js`) já a leem
+   * direto de `location.hash`, então cortar aqui não tira informação delas.
+   */
+  const hashCompleto = location.hash || '#/';
+  const hash = hashCompleto.split('?')[0] || '#/';
   const route = ROUTES.find((r) => r.path.test(hash)) || ROUTES[0];
   const match = hash.match(route.path);
   const params = route.params ? route.params(match) : {};

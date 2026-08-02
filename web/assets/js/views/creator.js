@@ -43,9 +43,10 @@ export default async function creator(root, params, ctx) {
 
   root.innerHTML = `<div class="page"><div class="skel" style="height:420px;border-radius:14px"></div></div>`;
 
-  // Qual canal abrir: o pedido na URL, o que acabou de ser conectado, ou o
-  // primeiro da lista (o servidor decide quando não mandamos nada).
-  const canalPedido = params.canal || feedback.get('canal') || null;
+  // Qual canal abrir: o pedido na URL (o roteador corta a query antes de
+  // casar a rota, então lemos direto do hash, como `conectado`/`erro` acima),
+  // ou o primeiro da lista quando não mandamos nada.
+  const canalPedido = feedback.get('canal') || null;
 
   let report;
   try {
