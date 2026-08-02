@@ -803,6 +803,16 @@ table.tbl tbody tr:hover { background: var(--surface-2); }
 .price-card li.off { color: var(--text-3); }
 .price-card li.off svg { color: var(--text-3); opacity: .55; }
 
+/*
+ * Mesmo padrão do `.price-card li` acima (`align-items: flex-start`, não
+ * `center`): a frase quebra em duas linhas em cards estreitos, e centralizar
+ * verticalmente deixaria o ícone flutuando entre as duas linhas em vez de
+ * colado na primeira.
+ */
+.cancel-note { display: flex; justify-content: center; align-items: flex-start; gap: 6px; text-align: left; line-height: 1.45; }
+.cancel-note .ico { display: inline-flex; flex-shrink: 0; margin-top: 1.5px; }
+.cancel-note svg { width: 14px; height: 14px; color: var(--pos); }
+
 /* ============================================================ landing == */
 
 .landing { min-height: 100vh; display: flex; flex-direction: column; background: var(--bg); }

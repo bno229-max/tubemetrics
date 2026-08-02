@@ -93,6 +93,11 @@ export default async function landing(root, _params, ctx) {
                 ${p.highlights.slice(0, 5).map((h) => `<li>${icon('checkSmall')}<span>${esc(h)}</span></li>`).join('')}
               </ul>
               <button class="btn ${p.featured ? 'btn-primary' : ''}" data-plano-cta>${esc(p.cta)}</button>
+              ${p.id !== 'free' ? `
+                <p class="muted fs12 cancel-note" style="margin-top:10px">
+                  <span class="ico">${icon('checkSmall')}</span>
+                  <span>Cancele quando quiser, sem burocracia</span>
+                </p>` : ''}
             </div>`).join('')}
         </div>
 
