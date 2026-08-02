@@ -10,6 +10,8 @@
  * verdade (nada de esticar um viewBox e borrar o texto).
  */
 
+import { esc } from './format.js';
+
 const NS = 'http://www.w3.org/2000/svg';
 const el = (tag, attrs = {}) => {
   const n = document.createElementNS(NS, tag);
@@ -193,7 +195,7 @@ export function lineChart(container, o) {
         dot.setAttribute('opacity', 1);
       });
       const rows = series
-        .map((s, si) => `<div class="tr"><span class="l"><i style="background:${s.color || colors[si % colors.length]}"></i>${s.name}</span><b>${formatValue(s.values[i], s)}</b></div>`)
+        .map((s, si) => `<div class="tr"><span class="l"><i style="background:${s.color || colors[si % colors.length]}"></i>${esc(s.name)}</span><b>${formatValue(s.values[i], s)}</b></div>`)
         .join('');
       positionTip(tip, container, X(i) * (box.width / w), Y(series[0].values[i]) * (box.height / height) - 8, `<div class="th">${labels[i]}</div>${rows}`);
     };
@@ -266,7 +268,7 @@ export function barChart(container, o) {
           rect.setAttribute('opacity', 1);
           const box = svg.getBoundingClientRect();
           const rows = series.map((ss, sj) =>
-            `<div class="tr"><span class="l"><i style="background:${ss.color || colors[sj % colors.length]}"></i>${ss.name}</span><b>${formatValue(ss.values[i], ss)}</b></div>`
+            `<div class="tr"><span class="l"><i style="background:${ss.color || colors[sj % colors.length]}"></i>${esc(ss.name)}</span><b>${formatValue(ss.values[i], ss)}</b></div>`
           ).join('');
           positionTip(tip, container, (gx + inner / 2) * (box.width / w), Y(Math.max(...series.map((ss) => ss.values[i]))) * (box.height / height) - 8, `<div class="th">${labels[i]}</div>${rows}`);
         });
@@ -325,7 +327,7 @@ export function hBarChart(container, o) {
         bar.setAttribute('opacity', 0.75);
         if (!r.tip) return;
         const box = svg.getBoundingClientRect();
-        positionTip(tip, container, (pad.l + bw) * (box.width / w), (y + 2) * (box.height / height), `<div class="th">${r.label}</div>${r.tip}`);
+        positionTip(tip, container, (pad.l + bw) * (box.width / w), (y + 2) * (box.height / height), `<div class="th">${esc(r.label)}</div>${r.tip}`);
       });
       hit.addEventListener('pointerleave', () => { bar.setAttribute('opacity', 1); tip.classList.remove('on'); });
       svg.appendChild(hit);
@@ -375,7 +377,7 @@ export function donutChart(container, o) {
         const box = svg.getBoundingClientRect();
         const [mx, my] = p((a0 + a1) / 2);
         positionTip(tip, container, mx * (box.width / s) + (box.left - container.getBoundingClientRect().left), my * (box.height / s) - 6,
-          `<div class="th">${d.label}</div><div class="tr"><span class="l">Participação</span><b>${(frac * 100).toFixed(1)}%</b></div>`);
+          `<div class="th">${esc(d.label)}</div><div class="tr"><span class="l">Participação</span><b>${(frac * 100).toFixed(1)}%</b></div>`);
       });
       path.addEventListener('pointerleave', () => { path.setAttribute('opacity', 1); tip.classList.remove('on'); });
       svg.appendChild(path);
@@ -474,7 +476,7 @@ export function radarChart(container, o) {
         dot.addEventListener('pointerenter', () => {
           const box = svg.getBoundingClientRect();
           const rows = series.map((set, sj) => `
-            <div class="tr"><span class="l">${names[sj] ? `<i style="background:${names.length > 1 ? colors[sj % colors.length] : cssVar('--s1', '#ff0033')}"></i>${names[sj]}` : ''}</span>
+            <div class="tr"><span class="l">${names[sj] ? `<i style="background:${names.length > 1 ? colors[sj % colors.length] : cssVar('--s1', '#ff0033')}"></i>${esc(names[sj])}` : ''}</span>
             <b>${set[i].raw != null ? formatAxisValue(set[i].raw) : `${set[i].value}/100`}</b></div>`).join('');
           positionTip(tip, container, x * (box.width / w), y * (box.height / s) - 8, `<div class="th">${axesSet[i].label}</div>${rows}`);
         });

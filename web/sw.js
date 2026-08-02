@@ -16,7 +16,7 @@
 // landing com atalhos rotativos. O SDK do Firebase vem de outro domínio
 // (gstatic.com) e por isso nem passa por aqui: o handler de fetch abaixo já
 // ignora tudo que não é da mesma origem.
-const CACHE = 'tubemetrics-v18';
+const CACHE = 'tubemetrics-v19';
 
 const SHELL = [
   './',
