@@ -13,16 +13,31 @@
  * unidades por dia — 0,2% da cota diária.
  */
 
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { fetchChannelStats, YouTubeError } from './_youtube.js';
 import { trackedChannels, saveSnapshots, trackChannel, storageReady, isoDay } from './_store.js';
 import { json, fail, handleYouTubeError, NO_CACHE } from './_http.js';
 
+/** Compara em tempo constante hasheando os dois lados pro mesmo tamanho fixo. */
+function timingSafeEqualStr(a, b) {
+  const ha = createHash('sha256').update(a).digest();
+  const hb = createHash('sha256').update(b).digest();
+  return timingSafeEqual(ha, hb);
+}
+
 export default async function handler(req, res) {
   // O Vercel Cron manda `Authorization: Bearer $CRON_SECRET`. Sem a checagem,
   // qualquer pessoa dispararia a coleta e queimaria a cota do dia.
+  //
+  // A comparação usa `timingSafeEqual` em vez de `!==`: como o segredo é
+  // curto e a rota é pública, um `!==` vaza pelo tempo de resposta quantos
+  // caracteres do início já batem, o que barateia um ataque de força bruta
+  // char a char. `timingSafeEqual` exige buffers do mesmo tamanho, então
+  // igualamos o comprimento antes (um hash SHA-256 dos dois lados resolve
+  // isso sem expor o tamanho real do segredo).
   const secret = process.env.CRON_SECRET;
   const enviado = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-  if (secret && enviado !== secret) {
+  if (secret && !timingSafeEqualStr(enviado, secret)) {
     return fail(res, 401, 'unauthorized', 'Segredo do cron inválido.');
   }
 

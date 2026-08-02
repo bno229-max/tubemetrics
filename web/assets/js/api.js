@@ -32,14 +32,17 @@ function setMode(next, error = null) {
   listeners.forEach((fn) => fn(mode, error));
 }
 
-async function request(path, params) {
+async function request(path, params, { authenticated = false } = {}) {
   const url = new URL(`${CONFIG.apiBase}${path}`, location.origin);
   for (const [k, v] of Object.entries(params || {})) url.searchParams.set(k, v);
 
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), CONFIG.timeoutMs);
   try {
-    const res = await fetch(url, { signal: ctrl.signal, headers: { Accept: 'application/json' } });
+    const res = await fetch(url, {
+      signal: ctrl.signal,
+      headers: { Accept: 'application/json', ...(authenticated ? await authHeader() : {}) },
+    });
     const body = await res.json().catch(() => null);
     if (!res.ok) {
       const err = new Error(body?.error?.message || `Backend respondeu ${res.status}`);
@@ -205,7 +208,7 @@ function toChannelCard(c) {
 export async function getPublicReport(channelId) {
   return withFallback(
     async () => {
-      const body = await request('/channel', { id: channelId });
+      const body = await request('/channel', { id: channelId }, { authenticated: true });
       return {
         channel: body.channel,
         analysis: analyze(body.channel, { withPrivate: false }),
