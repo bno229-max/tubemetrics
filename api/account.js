@@ -18,16 +18,23 @@
  *   GET  ?resource=config          → config pública do Firebase (sem login)
  *   GET                            → { user, quota, needsProfile }
  *   POST { action: 'profile' }     → 1º acesso: grava nome e telefone
- *   POST { action: 'plan' }        → troca de plano (demonstração)
+ *   POST { action: 'checkout' }    → inicia assinatura real via Stripe Checkout
+ *   POST { action: 'portal' }      → abre o Portal do Stripe (trocar cartão, cancelar)
  *   POST { action: 'quota' }       → gasta 1 análise, ou recusa com 403
+ *
+ * Não existe mais `action: 'plan'`: era uma troca de plano de demonstração
+ * que qualquer conta logada podia chamar diretamente, e virou um furo real
+ * assim que a cobrança passou a valer de verdade. Quem muda `plan` agora é só
+ * `api/stripe-webhook.js`, a partir de um evento assinado pelo Stripe.
  */
 
 import {
   verifyRequest, findUserByUid, createProfile, phoneTakenBy,
-  normalizePhone, publicUser, getQuota, setUserPlan, consumeSearch,
+  normalizePhone, publicUser, getQuota, consumeSearch,
 } from './_auth.js';
 import { firestoreReady } from './_firebase.js';
 import { isValidPlan } from './_plans.js';
+import { stripeReady, createCheckoutSession, createBillingPortalSession } from './_stripe.js';
 import { json, fail, NO_CACHE } from './_http.js';
 
 const PHONE_RE = /^\d{10,11}$/;
@@ -132,7 +139,8 @@ export default async function handler(req, res) {
   const { action } = req.body || {};
 
   if (action === 'profile') return saveProfile(req, res, account);
-  if (action === 'plan') return changePlan(req, res, account);
+  if (action === 'checkout') return startCheckout(req, res, account);
+  if (action === 'portal') return openBillingPortal(req, res, account);
   if (action === 'quota') return spendQuota(req, res, account);
 
   return fail(res, 400, 'unknownAction', 'Ação desconhecida.');
@@ -159,17 +167,58 @@ async function saveProfile(req, res, account) {
   return json(res, 200, { user: publicUser(user), quota: getQuota(user), needsProfile: false }, NO_CACHE);
 }
 
-/** Troca de plano de demonstração — ainda sem cobrança real. */
-async function changePlan(req, res, account) {
+/**
+ * Cria a sessão de Checkout do Stripe para assinar um plano pago.
+ *
+ * Devolve só a URL — o front navega para lá (como já faz em `startGoogleConnect`)
+ * porque é uma tela do Stripe, não um dado para renderizar aqui.
+ */
+async function startCheckout(req, res, account) {
+  if (!stripeReady()) return fail(res, 503, 'billingNotConfigured', 'Cobrança ainda não configurada neste servidor.');
+
   const { plan } = req.body || {};
-  if (!isValidPlan(plan)) return fail(res, 400, 'invalidPlan', 'Plano inválido.');
+  if (!isValidPlan(plan) || plan === 'free') return fail(res, 400, 'invalidPlan', 'Plano inválido para assinatura.');
 
   const user = await findUserByUid(account.uid);
-  if (!user) return fail(res, 400, 'needsProfile', 'Complete seu cadastro antes de escolher um plano.');
+  if (!user) return fail(res, 400, 'needsProfile', 'Complete seu cadastro antes de assinar um plano.');
 
-  await setUserPlan(account.uid, plan);
-  const updated = { ...user, plan };
-  return json(res, 200, { user: publicUser(updated), quota: getQuota(updated) }, NO_CACHE);
+  const origin = `https://${req.headers.host}`;
+  try {
+    const session = await createCheckoutSession({
+      uid: account.uid,
+      email: user.email,
+      plan,
+      customerId: user.stripeCustomerId || undefined,
+      successUrl: `${origin}/#/planos?assinatura=sucesso`,
+      cancelUrl: `${origin}/#/planos?assinatura=cancelada`,
+    });
+    return json(res, 200, { url: session.url }, NO_CACHE);
+  } catch (err) {
+    console.error('Erro ao criar Checkout Session:', err.message);
+    return fail(res, 502, 'stripeError', 'Não foi possível iniciar o checkout. Tente novamente.');
+  }
+}
+
+/** Portal do Stripe: trocar cartão, ver faturas ou cancelar a assinatura. */
+async function openBillingPortal(req, res, account) {
+  if (!stripeReady()) return fail(res, 503, 'billingNotConfigured', 'Cobrança ainda não configurada neste servidor.');
+
+  const user = await findUserByUid(account.uid);
+  if (!user?.stripeCustomerId) {
+    return fail(res, 400, 'noSubscription', 'Você ainda não tem uma assinatura para gerenciar.');
+  }
+
+  const origin = `https://${req.headers.host}`;
+  try {
+    const session = await createBillingPortalSession({
+      customerId: user.stripeCustomerId,
+      returnUrl: `${origin}/#/planos`,
+    });
+    return json(res, 200, { url: session.url }, NO_CACHE);
+  } catch (err) {
+    console.error('Erro ao abrir o Portal do Stripe:', err.message);
+    return fail(res, 502, 'stripeError', 'Não foi possível abrir o portal de cobrança.');
+  }
 }
 
 /**

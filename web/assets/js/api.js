@@ -128,11 +128,11 @@ export async function searchChannels(query, region = 'BR') {
 }
 
 /**
- * GET /api/trending?region= — vídeos e canais em alta no país.
+ * GET /api/rankings?resource=trending&region= — vídeos e canais em alta no país.
  * Sem equivalente no mock: é dado que só existe ao vivo.
  */
 export async function trending(region = 'BR') {
-  const body = await request('/trending', { region });
+  const body = await request('/rankings', { resource: 'trending', region });
   setMode('live');
   return body;
 }
@@ -156,13 +156,14 @@ export async function listChannels() {
 }
 
 /**
- * GET /api/top — ranking por inscritos de uma lista curada de canais reais.
- * Cai para o catálogo simulado quando o backend não está disponível.
+ * GET /api/rankings?resource=top — ranking por inscritos de uma lista curada
+ * de canais reais. Cai para o catálogo simulado quando o backend não está
+ * disponível.
  */
 export async function topChannels(limit = 20, region = 'BR') {
   return withFallback(
     async () => {
-      const body = await request('/top', { limit, region });
+      const body = await request('/rankings', { resource: 'top', limit, region });
       return body.channels;
     },
     async () => {
@@ -323,7 +324,14 @@ export async function fetchMe() {
 /** Completa o 1º acesso: nome e telefone, que o Firebase Auth não guarda. */
 export const saveProfile = (data) => accountRequest('/account', { payload: { action: 'profile', ...data } });
 
-export const setAccountPlan = (plan) => accountRequest('/account', { payload: { action: 'plan', plan } });
+/**
+ * Assinatura real via Stripe: as duas devolvem `{ url }` para o front navegar
+ * até lá (mesmo padrão de `startGoogleConnect`) — é uma tela do Stripe, não
+ * um dado para renderizar aqui. Quem de fato grava o plano novo é sempre o
+ * webhook, nunca esta chamada.
+ */
+export const startCheckout = (plan) => accountRequest('/account', { payload: { action: 'checkout', plan } });
+export const openBillingPortal = () => accountRequest('/account', { payload: { action: 'portal' } });
 
 /** Gasta 1 análise da conta logada — chamado antes de `getPublicReport`. */
 export const consumeQuota = (channelId) => accountRequest('/account', { payload: { action: 'quota', channelId } });

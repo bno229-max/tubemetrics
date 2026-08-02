@@ -52,7 +52,7 @@ function nichoPrincipal(c) {
   const t = (c.topicCategories || []).map(semQualificador);
   return traduzTopico(t.find((x) => !GENERICOS.has(x)) || t[0] || '—');
 }
-/** Países com lista curada em `api/top.js`. */
+/** Países com lista curada em `api/rankings.js`. */
 const PAISES = { BR: 'Brasil', US: 'Estados Unidos' };
 
 export default async function top(root, params, ctx) {

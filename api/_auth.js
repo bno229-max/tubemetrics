@@ -100,11 +100,6 @@ export async function createProfile(uid, { name, email, phone }) {
   return { id: uid, ...profile };
 }
 
-export async function setUserPlan(uid, plan) {
-  const col = usersCol();
-  if (col) await col.doc(uid).update({ plan });
-}
-
 /** O que pode ir para o navegador. */
 export const publicUser = (user) => ({
   name: user.name,
