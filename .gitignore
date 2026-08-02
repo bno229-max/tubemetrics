@@ -10,3 +10,4 @@ node_modules/
 # credenciais de conta de servico
 *serviceaccount*.json
 *-firebase-adminsdk-*.json
+senhas.txt
